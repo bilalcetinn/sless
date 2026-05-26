@@ -131,30 +131,6 @@ async def require_auth(request: Request) -> dict:
 
 
 # ══════════════════════════════════════════════════════════════
-# 1. MODEL YÖNETİMİ
-# ══════════════════════════════════════════════════════════════
-
-
-class ModelCreate(BaseModel):
-    name: str
-    file_path: str
-    description: Optional[str] = None
-
-    @field_validator("name")
-    @classmethod
-    def name_not_empty(cls, v):
-        if not v or not v.strip():
-            raise ValueError("Model adı boş olamaz.")
-        return v.strip()
-
-    @field_validator("file_path")
-    @classmethod
-    def valid_file_path(cls, v):
-        if not v.endswith(".pt") and not v.endswith(".pth"):
-            raise ValueError("Dosya yolu .pt veya .pth ile bitmelidir.")
-        return v
-
-
 @app.get("/api/models")
 async def list_models():
     """Tüm aktif modelleri listele."""
@@ -179,13 +155,38 @@ async def list_models():
 
 
 @app.post("/api/models")
-async def add_model(data: ModelCreate):
-    """Yeni model ekle."""
+async def add_model(
+    name: str = Form(...),
+    description: Optional[str] = Form(None),
+    file: UploadFile = File(...)
+):
+    """Yeni model ekle (dosya yükleme ile)."""
+    if not name or not name.strip():
+        raise HTTPException(status_code=400, detail="Model adı boş olamaz.")
+
+    _, ext = os.path.splitext(file.filename)
+    if ext.lower() not in {".pt", ".pth"}:
+        raise HTTPException(
+            status_code=400, detail="Dosya uzantısı .pt veya .pth olmalıdır."
+        )
+
     db = await get_db()
     try:
+        # Modeli diskte models/ klasörüne kaydet
+        models_dir = os.path.join(BASE_DIR, "models")
+        os.makedirs(models_dir, exist_ok=True)
+        unique_name = f"model_{uuid.uuid4().hex}{ext.lower()}"
+        file_path = os.path.join(models_dir, unique_name)
+
+        contents = await file.read()
+        with open(file_path, "wb") as f:
+            f.write(contents)
+
+        relative_path = f"models/{unique_name}"
+
         cursor = await db.execute(
             "INSERT INTO models (name, file_path, description) VALUES (?, ?, ?)",
-            (data.name, data.file_path, data.description),
+            (name.strip(), relative_path, description),
         )
         await db.commit()
         model_id = cursor.lastrowid

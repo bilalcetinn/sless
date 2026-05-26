@@ -1,0 +1,25 @@
+# Python
+backend/venv/
+backend/__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+
+# Cloned model repos (setup_models.sh ile kurulur)
+backend/libs/
+
+# Yüklenen / üretilen ses dosyaları
+uploads/
+
+# Büyük model dosyaları (Git LFS olmadan commit edilmez)
+*.pt
+*.pth
+models/
+
+# Node
+frontend/node_modules/
+frontend/dist/
+
+# Misc
+.DS_Store
+*.env

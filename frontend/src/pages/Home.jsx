@@ -4,7 +4,6 @@ import { uploadAudio, processAudio, getStatus } from '../api/client';
 import Navbar from '../components/Navbar';
 import ModelSelector from '../components/ModelSelector';
 import AudioUploader from '../components/AudioUploader';
-import ControlSliders from '../components/ControlSliders';
 import ProcessingStatus from '../components/ProcessingStatus';
 import AudioComparison from '../components/AudioComparison';
 import SpectrogramView from '../components/SpectrogramView';
@@ -258,30 +257,7 @@ export default function Home() {
                 <AudioUploader />
               </div>
 
-              {/* Parametreler Kartı */}
-              <div
-                style={{
-                  background: '#FFFFFF',
-                  border: '1px solid #F0F0F0',
-                  borderRadius: '16px',
-                  padding: '20px',
-                  boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: '11px',
-                    fontWeight: 700,
-                    letterSpacing: '0.1em',
-                    textTransform: 'uppercase',
-                    color: '#AAAAAA',
-                    marginBottom: '12px',
-                  }}
-                >
-                  İŞLEME PARAMETRELERİ
-                </div>
-                <ControlSliders />
-              </div>
+
 
               {/* Sesi Temizle Butonu */}
               <button

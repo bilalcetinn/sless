@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import useStore from '../store/useStore';
 import { fetchModels, addModel, deleteModel } from '../api/client';
 
@@ -7,9 +8,13 @@ export default function ModelSelector() {
   const [isOpen, setIsOpen] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [newModel, setNewModel] = useState({ name: '', file_path: '', description: '' });
+  const [newModel, setNewModel] = useState({ name: '', description: '' });
+  const [modelFile, setModelFile] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const [error, setError] = useState('');
   const dropdownRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     loadModels();
@@ -40,6 +45,48 @@ export default function ModelSelector() {
     }
   }
 
+  function handleFileChange(e) {
+    const file = e.target.files[0];
+    if (file) {
+      validateAndSetFile(file);
+    }
+  }
+
+  function validateAndSetFile(file) {
+    setError('');
+    const name = file.name.toLowerCase();
+    if (!name.endsWith('.pt') && !name.endsWith('.pth')) {
+      setError('Model dosyası .pt veya .pth uzantılı olmalıdır.');
+      return;
+    }
+    setModelFile(file);
+  }
+
+  function handleDragOver(e) {
+    e.preventDefault();
+    setIsDragging(true);
+  }
+
+  function handleDragLeave(e) {
+    e.preventDefault();
+    setIsDragging(false);
+  }
+
+  function handleDrop(e) {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files[0];
+    if (file) {
+      validateAndSetFile(file);
+    }
+  }
+
+  function formatSize(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  }
+
   async function handleAddModel(e) {
     e.preventDefault();
     setError('');
@@ -47,19 +94,28 @@ export default function ModelSelector() {
       setError('Model adı boş olamaz.');
       return;
     }
-    if (!newModel.file_path.endsWith('.pt') && !newModel.file_path.endsWith('.pth')) {
-      setError('Dosya yolu .pt veya .pth ile bitmelidir.');
+    if (!modelFile) {
+      setError('Lütfen bir model dosyası (.pt veya .pth) seçin.');
       return;
     }
     try {
-      const created = await addModel(newModel);
+      setIsSaving(true);
+      const formData = new FormData();
+      formData.append('name', newModel.name.trim());
+      formData.append('description', newModel.description || '');
+      formData.append('file', modelFile);
+
+      const created = await addModel(formData);
       setShowAddModal(false);
-      setNewModel({ name: '', file_path: '', description: '' });
+      setNewModel({ name: '', description: '' });
+      setModelFile(null);
       await loadModels();
       setSelectedModel(created.id);
     } catch (err) {
       const msg = err.response?.data?.detail || 'Model eklenirken hata oluştu.';
       setError(typeof msg === 'string' ? msg : JSON.stringify(msg));
+    } finally {
+      setIsSaving(false);
     }
   }
 
@@ -73,6 +129,7 @@ export default function ModelSelector() {
         setSelectedModel(remaining.length > 0 ? remaining[0].id : null);
       }
     } catch (err) {
+      console.error('Model silinirken hata oluştu:', err);
       alert('Model silinirken hata oluştu.');
     }
   }
@@ -282,17 +339,18 @@ export default function ModelSelector() {
       )}
 
       {/* Model Ekleme Modalı */}
-      {showAddModal && (
+      {showAddModal && createPortal(
         <div
           style={{
             position: 'fixed',
             inset: 0,
-            zIndex: 50,
+            zIndex: 9999,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             background: 'rgba(0,0,0,0.4)',
             backdropFilter: 'blur(4px)',
+            WebkitBackdropFilter: 'blur(4px)',
             padding: '16px',
           }}
         >
@@ -330,16 +388,100 @@ export default function ModelSelector() {
               </div>
               <div style={{ marginBottom: '16px' }}>
                 <label style={{ fontSize: '13px', fontWeight: 600, color: '#262626', marginBottom: '6px', display: 'block' }}>
-                  Dosya Yolu <span style={{ color: '#EF4444' }}>*</span>
+                  Model Dosyası <span style={{ color: '#EF4444' }}>*</span>
                 </label>
                 <input
-                  type="text"
-                  value={newModel.file_path}
-                  onChange={(e) => setNewModel({ ...newModel, file_path: e.target.value })}
-                  placeholder="örn: models/model_v2.pt"
-                  style={{ width: '100%', padding: '12px 16px', border: '1.5px solid #E5E5E5', borderRadius: '10px', fontSize: '15px', color: '#262626', background: '#FAFAFA', outline: 'none' }}
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".pt,.pth"
+                  onChange={handleFileChange}
+                  style={{ display: 'none' }}
                 />
-                <p style={{ fontSize: '12px', color: '#AAAAAA', marginTop: '6px' }}>.pt veya .pth uzantılı dosya yolu girin</p>
+                <div
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                  onClick={() => fileInputRef.current?.click()}
+                  style={{
+                    border: modelFile
+                      ? '2px solid #FA5D19'
+                      : isDragging
+                        ? '2px dashed #FA5D19'
+                        : '2px dashed #E5E5E5',
+                    borderRadius: '12px',
+                    padding: '20px 16px',
+                    textAlign: 'center',
+                    cursor: 'pointer',
+                    background: modelFile
+                      ? '#FFF5F0'
+                      : isDragging
+                        ? '#FFF9F7'
+                        : '#FAFAFA',
+                    transition: 'all 0.2s',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isDragging && !modelFile) {
+                      e.currentTarget.style.borderColor = '#FA5D19';
+                      e.currentTarget.style.background = '#FFF9F7';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isDragging && !modelFile) {
+                      e.currentTarget.style.borderColor = '#E5E5E5';
+                      e.currentTarget.style.background = '#FAFAFA';
+                    }
+                  }}
+                >
+                  {modelFile ? (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FA5D19" strokeWidth="2" style={{ flexShrink: 0 }}>
+                        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+                        <polyline points="14 2 14 8 20 8" />
+                        <line x1="16" y1="13" x2="8" y2="13" />
+                        <line x1="16" y1="17" x2="8" y2="17" />
+                        <polyline points="10 9 9 9 8 9" />
+                      </svg>
+                      <div style={{ textAlign: 'left', flex: 1, minWidth: 0 }}>
+                        <p style={{ fontWeight: 600, color: '#262626', fontSize: '13px', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {modelFile.name}
+                        </p>
+                        <p style={{ fontSize: '11px', color: '#888', marginTop: '2px', margin: 0 }}>
+                          {formatSize(modelFile.size)}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setModelFile(null);
+                        }}
+                        style={{
+                          fontSize: '12px',
+                          fontWeight: 600,
+                          color: '#EF4444',
+                          background: 'transparent',
+                          border: 'none',
+                          cursor: 'pointer',
+                          flexShrink: 0,
+                        }}
+                      >
+                        Sil
+                      </button>
+                    </div>
+                  ) : (
+                    <div>
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FA5D19" strokeWidth="2" style={{ marginBottom: '8px', display: 'inline-block' }}>
+                        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                      <p style={{ fontSize: '13px', fontWeight: 600, color: '#262626', margin: 0 }}>
+                        Model dosyasını sürükleyin veya <span style={{ color: '#FA5D19' }}>seçin</span>
+                      </p>
+                      <p style={{ fontSize: '11px', color: '#AAAAAA', marginTop: '4px', margin: 0 }}>
+                        Sadece .pt veya .pth dosyaları
+                      </p>
+                    </div>
+                  )}
+                </div>
               </div>
               <div style={{ marginBottom: '24px' }}>
                 <label style={{ fontSize: '13px', fontWeight: 600, color: '#262626', marginBottom: '6px', display: 'block' }}>Açıklama</label>
@@ -354,21 +496,23 @@ export default function ModelSelector() {
               <div style={{ display: 'flex', gap: '12px' }}>
                 <button
                   type="button"
-                  onClick={() => { setShowAddModal(false); setError(''); setNewModel({ name: '', file_path: '', description: '' }); }}
+                  onClick={() => { setShowAddModal(false); setError(''); setNewModel({ name: '', description: '' }); setModelFile(null); }}
                   style={{ flex: 1, padding: '12px', fontSize: '14px', fontWeight: 600, color: '#262626', border: '1.5px solid #E5E5E5', borderRadius: '10px', background: 'transparent', cursor: 'pointer' }}
                 >
                   İptal
                 </button>
                 <button
                   type="submit"
-                  style={{ flex: 1, padding: '12px', fontSize: '14px', fontWeight: 600, color: 'white', background: 'linear-gradient(135deg, #FA5D19, #FF7A40)', borderRadius: '10px', border: 'none', cursor: 'pointer', boxShadow: '0 4px 16px rgba(250,93,25,0.3)' }}
+                  disabled={isSaving}
+                  style={{ flex: 1, padding: '12px', fontSize: '14px', fontWeight: 600, color: 'white', background: isSaving ? '#CCCCCC' : 'linear-gradient(135deg, #FA5D19, #FF7A40)', borderRadius: '10px', border: 'none', cursor: isSaving ? 'not-allowed' : 'pointer', boxShadow: isSaving ? 'none' : '0 4px 16px rgba(250,93,25,0.3)' }}
                 >
-                  Kaydet
+                  {isSaving ? 'Yükleniyor...' : 'Kaydet'}
                 </button>
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

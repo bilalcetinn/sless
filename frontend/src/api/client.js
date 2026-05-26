@@ -35,8 +35,10 @@ export async function fetchModels() {
   return res.data;
 }
 
-export async function addModel(data) {
-  const res = await API.post('/api/models', data);
+export async function addModel(formData) {
+  const res = await API.post('/api/models', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
   return res.data;
 }
 
