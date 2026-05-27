@@ -5,7 +5,6 @@ import WaveformViewer from './WaveformViewer';
 
 export default function ModelComparison() {
   const { recordId, models, setModels } = useStore();
-  const [loading, setLoading] = useState(false);
 
   // Sol panel state
   const [leftModelId, setLeftModelId] = useState(null);
@@ -21,23 +20,19 @@ export default function ModelComparison() {
   const [rightResult, setRightResult] = useState(null);
   const [rightLoading, setRightLoading] = useState(false);
 
-  // Oylama
-  const [vote, setVote] = useState(null); // 'left' | 'right'
-
   useEffect(() => {
     async function loadModels() {
       try {
         const data = await fetchModels();
         setModels(data);
-        if (data.length >= 1 && !leftModelId) setLeftModelId(data[0].id);
-        if (data.length >= 2 && !rightModelId) setRightModelId(data[1].id);
-        else if (data.length >= 1 && !rightModelId) setRightModelId(data[0].id);
+        setLeftModelId((current) => current || data[0]?.id || null);
+        setRightModelId((current) => current || data[1]?.id || data[0]?.id || null);
       } catch (err) {
         console.error('Modeller yüklenemedi:', err);
       }
     }
     loadModels();
-  }, []);
+  }, [setModels]);
 
   async function processLeft() {
     if (!recordId || !leftModelId) return;
@@ -47,10 +42,11 @@ export default function ModelComparison() {
       setLeftResult({
         recordId: result.record_id,
         modelName: result.model_name,
-        cleanedAudioUrl: `http://localhost:8000/files/${result.cleaned_file_path}`,
+        cleanedAudioUrl: `http://localhost:8001/files/${result.cleaned_file_path}`,
         status: result.status,
       });
     } catch (err) {
+      console.error('Sol model işlenirken hata oluştu:', err);
       alert('Sol model işlenirken hata oluştu.');
     } finally {
       setLeftLoading(false);
@@ -65,10 +61,11 @@ export default function ModelComparison() {
       setRightResult({
         recordId: result.record_id,
         modelName: result.model_name,
-        cleanedAudioUrl: `http://localhost:8000/files/${result.cleaned_file_path}`,
+        cleanedAudioUrl: `http://localhost:8001/files/${result.cleaned_file_path}`,
         status: result.status,
       });
     } catch (err) {
+      console.error('Sağ model işlenirken hata oluştu:', err);
       alert('Sağ model işlenirken hata oluştu.');
     } finally {
       setRightLoading(false);
@@ -168,40 +165,6 @@ export default function ModelComparison() {
         {renderPanel('left', leftModelId, setLeftModelId, leftNoise, setLeftNoise, leftSensitivity, setLeftSensitivity, leftResult, leftLoading, processLeft)}
         {renderPanel('right', rightModelId, setRightModelId, rightNoise, setRightNoise, rightSensitivity, setRightSensitivity, rightResult, rightLoading, processRight)}
       </div>
-
-      {/* Oylama */}
-      {leftResult && rightResult && (
-        <div className="bg-white border border-app-gray rounded-xl p-6 text-center space-y-4 animate-fade-in">
-          <h3 className="text-lg font-semibold text-app-dark">Hangisi daha iyi?</h3>
-          <div className="flex gap-4 justify-center">
-            <button
-              onClick={() => setVote('left')}
-              className={`px-6 py-3 rounded-xl font-semibold text-sm transition-all ${
-                vote === 'left'
-                  ? 'bg-app-orange text-white shadow-lg shadow-app-orange/30 scale-105'
-                  : 'bg-app-dark/5 text-app-dark hover:bg-app-dark/10'
-              }`}
-            >
-              👈 {leftResult.modelName}
-            </button>
-            <button
-              onClick={() => setVote('right')}
-              className={`px-6 py-3 rounded-xl font-semibold text-sm transition-all ${
-                vote === 'right'
-                  ? 'bg-app-orange text-white shadow-lg shadow-app-orange/30 scale-105'
-                  : 'bg-app-dark/5 text-app-dark hover:bg-app-dark/10'
-              }`}
-            >
-              {rightResult.modelName} 👉
-            </button>
-          </div>
-          {vote && (
-            <p className="text-sm text-green-600 font-medium animate-fade-in">
-              ✓ Oyunuz kaydedildi: {vote === 'left' ? leftResult.modelName : rightResult.modelName}
-            </p>
-          )}
-        </div>
-      )}
     </div>
   );
 }

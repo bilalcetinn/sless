@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import useStore from '../store/useStore';
 import { fetchModels, addModel, deleteModel } from '../api/client';
@@ -17,10 +17,6 @@ export default function ModelSelector() {
   const fileInputRef = useRef(null);
 
   useEffect(() => {
-    loadModels();
-  }, []);
-
-  useEffect(() => {
     function handleClickOutside(e) {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
         setIsOpen(false);
@@ -30,7 +26,7 @@ export default function ModelSelector() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  async function loadModels() {
+  const loadModels = useCallback(async function loadModels() {
     try {
       setLoading(true);
       const data = await fetchModels();
@@ -43,7 +39,13 @@ export default function ModelSelector() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [selectedModelId, setModels, setSelectedModel]);
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      loadModels();
+    });
+  }, [loadModels]);
 
   function handleFileChange(e) {
     const file = e.target.files[0];

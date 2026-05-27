@@ -121,6 +121,35 @@ export default function ThreeDSpectro() {
   const [viewMode, setViewMode] = useState('original'); // original | cleaned | difference
   const [loading, setLoading] = useState(false);
 
+  // ── viewMode değişince target grid'i güncelle ──
+  const updateTargetForMode = useCallback((mode) => {
+    if (!targetHeightsRef.current) return;
+
+    let sourceGrid = null;
+
+    if (mode === 'original') {
+      sourceGrid = originalGridRef.current;
+    } else if (mode === 'cleaned') {
+      sourceGrid = cleanedGridRef.current;
+    } else if (mode === 'difference') {
+      sourceGrid = differenceGridRef.current;
+    }
+
+    // Grid yoksa demo yüzeyi kullan
+    if (!sourceGrid) {
+      sourceGrid = generateDemoGrid();
+    }
+
+    for (let i = 0; i < targetHeightsRef.current.length; i++) {
+      targetHeightsRef.current[i] = sourceGrid[i] || 0;
+    }
+
+    // Animasyon döngüsüne modu bildir (renkleme için)
+    if (sceneDataRef.current?.setMode) {
+      sceneDataRef.current.setMode(mode);
+    }
+  }, []);
+
   // ── Three.js sahne kurulumu (bir kez) ──
   useEffect(() => {
     if (!containerRef.current) return;
@@ -362,35 +391,6 @@ export default function ThreeDSpectro() {
       setViewMode('difference');
     }
   }, [processingStatus, cleanedAudioUrl]);
-
-  // ── viewMode değişince target grid'i güncelle ──
-  const updateTargetForMode = useCallback((mode) => {
-    if (!targetHeightsRef.current) return;
-
-    let sourceGrid = null;
-
-    if (mode === 'original') {
-      sourceGrid = originalGridRef.current;
-    } else if (mode === 'cleaned') {
-      sourceGrid = cleanedGridRef.current;
-    } else if (mode === 'difference') {
-      sourceGrid = differenceGridRef.current;
-    }
-
-    // Grid yoksa demo yüzeyi kullan
-    if (!sourceGrid) {
-      sourceGrid = generateDemoGrid();
-    }
-
-    for (let i = 0; i < targetHeightsRef.current.length; i++) {
-      targetHeightsRef.current[i] = sourceGrid[i] || 0;
-    }
-
-    // Animasyon döngüsüne modu bildir (renkleme için)
-    if (sceneDataRef.current?.setMode) {
-      sceneDataRef.current.setMode(mode);
-    }
-  }, []);
 
   // viewMode state değişince hedefi güncelle
   useEffect(() => {

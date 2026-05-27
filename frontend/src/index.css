@@ -6,7 +6,10 @@
   --color-app-dark: #262626;
   --color-app-orange: #FA5D19;
   --color-app-orange-light: #FF7A40;
+  --color-app-orange-bg: #FFF5F0;
+  --color-app-orange-pale: #FEE8DC;
   --color-app-gray: #E5E5E5;
+  --color-app-gray-text: #888888;
 
   --font-sans: 'Inter', sans-serif;
   --font-mono: 'Space Grotesk', sans-serif;

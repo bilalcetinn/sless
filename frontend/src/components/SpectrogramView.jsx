@@ -157,8 +157,10 @@ function SpectrogramPanel({ audioUrl, label, colorMap, speechFocus, onWsReady, p
     });
 
     ws.on('error', (err) => {
-      console.error(`[SpectrogramPanel] ${label} hata:`, err);
       if (abortToken.aborted) return;
+      const message = err?.message || String(err);
+      if (message.includes('aborted') || err?.name === 'AbortError') return;
+      console.error(`[SpectrogramPanel] ${label} hata:`, err);
       setStatus('error');
     });
 
@@ -270,7 +272,19 @@ function SpectrogramPanel({ audioUrl, label, colorMap, speechFocus, onWsReady, p
       </div>
 
       {/* Gizli WaveSurfer dalga formu konteyneri */}
-      <div ref={hiddenWaveRef} style={{ height: 1, opacity: 0, overflow: 'hidden', position: 'absolute', pointerEvents: 'none' }} />
+      <div
+        ref={hiddenWaveRef}
+        style={{
+          width: '100%',
+          height: 1,
+          opacity: 0,
+          overflow: 'hidden',
+          position: 'absolute',
+          left: 0,
+          top: 0,
+          pointerEvents: 'none',
+        }}
+      />
 
       {/* Spektrogram çıktısı + tooltip katmanı */}
       <div

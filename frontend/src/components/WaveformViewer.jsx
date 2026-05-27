@@ -32,7 +32,11 @@ function WavePanel({ label, audioUrl, color = '#FA5D19', progressColor = '#26262
     setDuration(0);
 
     if (wsRef.current) {
-      try { wsRef.current.destroy(); } catch (_) {}
+      try {
+        wsRef.current.destroy();
+      } catch (err) {
+        console.warn('WaveSurfer temizlenemedi:', err);
+      }
     }
     containerRef.current.innerHTML = '';
 
@@ -84,11 +88,15 @@ function WavePanel({ label, audioUrl, color = '#FA5D19', progressColor = '#26262
     return () => {
       cancelled = true;
       if (wsRef.current) {
-        try { wsRef.current.destroy(); } catch (_) {}
+        try {
+          wsRef.current.destroy();
+        } catch (err) {
+          console.warn('WaveSurfer temizlenemedi:', err);
+        }
         wsRef.current = null;
       }
     };
-  }, [audioUrl]);
+  }, [audioUrl, color, progressColor]);
 
   function togglePlay() {
     if (!wsRef.current || status !== 'ready') return;

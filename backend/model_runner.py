@@ -260,6 +260,54 @@ def _run_mossformergan_inference(model, audio: np.ndarray, sr: int, cfg: dict) -
     return np.concatenate(all_enhanced)
 
 
+def _clamp_control(value: float) -> float:
+    try:
+        value = float(value)
+    except (TypeError, ValueError):
+        value = 50.0
+    return max(0.0, min(100.0, value)) / 100.0
+
+
+def _match_length(audio: np.ndarray, target_len: int) -> np.ndarray:
+    if len(audio) == target_len:
+        return audio.astype("float32", copy=False)
+    if len(audio) < 2 or target_len <= 0:
+        return np.zeros(target_len, dtype="float32")
+
+    source_x = np.linspace(0.0, 1.0, num=len(audio), endpoint=True)
+    target_x = np.linspace(0.0, 1.0, num=target_len, endpoint=True)
+    return np.interp(target_x, source_x, audio).astype("float32")
+
+
+def _apply_user_controls(
+    original: np.ndarray,
+    enhanced: np.ndarray,
+    noise_level: float,
+    sensitivity: float,
+) -> np.ndarray:
+    noise_amount = _clamp_control(noise_level)
+    filter_amount = _clamp_control(sensitivity)
+
+    original = _match_length(original, len(enhanced))
+    enhanced = enhanced.astype("float32", copy=False)
+
+    # noise_level controls dry/wet mix: 0 keeps original, 100 keeps model output.
+    controlled = (original * (1.0 - noise_amount)) + (enhanced * noise_amount)
+
+    # sensitivity adds a conservative residual gate on low-energy regions.
+    if filter_amount > 0.0 and controlled.size:
+        abs_signal = np.abs(controlled)
+        floor = float(np.percentile(abs_signal, 25))
+        threshold = floor * (0.75 + filter_amount * 1.5)
+        if threshold > 0:
+            attenuation = 1.0 - (0.45 * filter_amount)
+            quiet_mask = abs_signal < threshold
+            controlled = controlled.copy()
+            controlled[quiet_mask] *= attenuation
+
+    return controlled.astype("float32", copy=False)
+
+
 # ── ModelRunner ─────────────────────────────────────────────
 
 class ModelRunner:
@@ -311,6 +359,8 @@ class ModelRunner:
             enhanced = _run_fullsubnet_inference(model, audio, sr, cfg)
         else:
             enhanced = _run_mossformergan_inference(model, audio, sr, cfg)
+
+        enhanced = _apply_user_controls(audio, enhanced, noise_level, sensitivity)
 
         # Soft clipping
         peak = np.max(np.abs(enhanced))

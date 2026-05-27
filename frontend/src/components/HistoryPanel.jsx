@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import useStore from '../store/useStore';
 import { getHistory, downloadAudio } from '../api/client';
 
-export default function HistoryPanel() {
+export default function HistoryPanel({ showHeader = true }) {
   const { user } = useStore();
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -22,7 +22,7 @@ export default function HistoryPanel() {
       setError('');
       const data = await getHistory();
       setRecords(data);
-    } catch (err) {
+    } catch {
       setError('Geçmiş yüklenirken hata oluştu.');
     } finally {
       setLoading(false);
@@ -32,7 +32,7 @@ export default function HistoryPanel() {
   async function handleDownload(recordId) {
     try {
       await downloadAudio(recordId);
-    } catch (err) {
+    } catch {
       alert('İndirme sırasında hata oluştu.');
     }
   }
@@ -54,7 +54,7 @@ export default function HistoryPanel() {
       audioElement.pause();
     }
 
-    const url = `http://localhost:8000/files/${record.cleaned_file_path}`;
+    const url = `http://localhost:8001/files/${record.cleaned_file_path}`;
     const audio = new Audio(url);
     audio.play();
     audio.onended = () => {
@@ -110,8 +110,9 @@ export default function HistoryPanel() {
   if (!user) return null;
 
   return (
-    <div style={{ padding: '24px 0' }}>
+    <div style={{ padding: showHeader ? '24px 0' : 0 }}>
       {/* Başlık satırı */}
+      {showHeader && (
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <h2 style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: '20px', color: '#262626', margin: 0 }}>
           İşlem Geçmişi
@@ -136,6 +137,28 @@ export default function HistoryPanel() {
           Yenile
         </button>
       </div>
+      )}
+
+      {!showHeader && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '16px' }}>
+          <button
+            onClick={loadHistory}
+            style={{
+              background: '#FFF5F0',
+              border: '1.5px solid rgba(250,93,25,0.25)',
+              color: '#FA5D19',
+              padding: '8px 14px',
+              borderRadius: '8px',
+              fontSize: '13px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              fontFamily: "'Inter', sans-serif",
+            }}
+          >
+            Yenile
+          </button>
+        </div>
+      )}
 
       {/* Yükleniyor */}
       {loading && (

@@ -4,13 +4,50 @@ import useStore from '../store/useStore';
 const MAX_SIZE = 100 * 1024 * 1024;
 const ALLOWED = ['.wav', '.mp3', '.ogg', '.flac', '.m4a'];
 
+function encodeWav(floatChunks, sampleRate) {
+  const sampleCount = floatChunks.reduce((total, chunk) => total + chunk.length, 0);
+  const buffer = new ArrayBuffer(44 + sampleCount * 2);
+  const view = new DataView(buffer);
+
+  function writeString(offset, value) {
+    for (let i = 0; i < value.length; i += 1) {
+      view.setUint8(offset + i, value.charCodeAt(i));
+    }
+  }
+
+  writeString(0, 'RIFF');
+  view.setUint32(4, 36 + sampleCount * 2, true);
+  writeString(8, 'WAVE');
+  writeString(12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * 2, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  writeString(36, 'data');
+  view.setUint32(40, sampleCount * 2, true);
+
+  let offset = 44;
+  floatChunks.forEach((chunk) => {
+    for (let i = 0; i < chunk.length; i += 1) {
+      const sample = Math.max(-1, Math.min(1, chunk[i]));
+      view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
+      offset += 2;
+    }
+  });
+
+  return new Blob([buffer], { type: 'audio/wav' });
+}
+
 export default function AudioUploader() {
   const { uploadedFile, setUploadedFile, resetProcessing } = useStore();
   const [isDragging, setIsDragging] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [error, setError] = useState('');
   const fileInputRef = useRef(null);
-  const mediaRecorderRef = useRef(null);
+  const recorderRef = useRef(null);
   const chunksRef = useRef([]);
 
   const validateFile = useCallback((file) => {
@@ -47,27 +84,40 @@ export default function AudioUploader() {
 
   async function toggleRecording() {
     if (isRecording) {
-      if (mediaRecorderRef.current) mediaRecorderRef.current.stop();
+      if (recorderRef.current) {
+        const { audioContext, processor, source, stream, sampleRate } = recorderRef.current;
+        processor.disconnect();
+        source.disconnect();
+        stream.getTracks().forEach((track) => track.stop());
+        const blob = encodeWav(chunksRef.current, sampleRate);
+        const file = new File([blob], `kayit_${Date.now()}.wav`, { type: 'audio/wav' });
+        audioContext.close();
+        recorderRef.current = null;
+        resetProcessing();
+        setUploadedFile(file);
+      }
       setIsRecording(false);
       return;
     }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
-      mediaRecorderRef.current = mediaRecorder;
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      const audioContext = new AudioContextClass();
+      const source = audioContext.createMediaStreamSource(stream);
+      const processor = audioContext.createScriptProcessor(4096, 1, 1);
       chunksRef.current = [];
-      mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
-      mediaRecorder.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: 'audio/wav' });
-        const file = new File([blob], `kayit_${Date.now()}.wav`, { type: 'audio/wav' });
-        stream.getTracks().forEach(track => track.stop());
-        resetProcessing();
-        setUploadedFile(file);
+
+      processor.onaudioprocess = (event) => {
+        const input = event.inputBuffer.getChannelData(0);
+        chunksRef.current.push(new Float32Array(input));
       };
-      mediaRecorder.start();
+
+      source.connect(processor);
+      processor.connect(audioContext.destination);
+      recorderRef.current = { audioContext, processor, source, stream, sampleRate: audioContext.sampleRate };
       setIsRecording(true);
       setError('');
-    } catch (err) {
+    } catch {
       setError('Mikrofon erişimi reddedildi. Lütfen tarayıcı izinlerini kontrol edin.');
     }
   }
