@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import useStore from '../store/useStore';
 import WaveSurfer from 'wavesurfer.js';
 import SpectrogramPlugin from 'wavesurfer.js/dist/plugins/spectrogram.esm.js';
+import DifferenceAnalysis from './DifferenceAnalysis';
 
 function generateColorMap() {
   const map = [];
@@ -491,6 +492,13 @@ export default function SpectrogramView() {
           </div>
         )}
       </div>
+
+      {/* ── Fark Analizi (spektrogram overlap) ── */}
+      <DifferenceAnalysis
+        originalUrl={originalAudioUrl}
+        cleanedUrl={cleanedAudioUrl}
+        mode="spectrogram"
+      />
     </div>
   );
 }
