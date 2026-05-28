@@ -3,10 +3,6 @@ import useStore from '../store/useStore';
 import WaveSurfer from 'wavesurfer.js';
 import SpectrogramPlugin from 'wavesurfer.js/dist/plugins/spectrogram.esm.js';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Özel renk haritası: Koyu antrasit (#111111) → Turuncu (#FA5D19)
-// colorMap: 256 eleman, her biri [r, g, b, alpha] (0..1 arası float)
-// ─────────────────────────────────────────────────────────────────────────────
 function generateColorMap() {
   const map = [];
   for (let i = 0; i < 256; i++) {
@@ -15,22 +11,19 @@ function generateColorMap() {
     if (t < 0.5) {
       const p = t * 2;
       r = 17 + (140 - 17) * p;
-      g = 17 + (50 - 17) * p;
-      b = 17 + (10 - 17) * p;
+      g = 17 + (50  - 17) * p;
+      b = 17 + (10  - 17) * p;
     } else {
       const p = (t - 0.5) * 2;
       r = 140 + (255 - 140) * p;
-      g = 50 + (160 - 50) * p;
-      b = 10 + (50 - 10) * p;
+      g = 50  + (160 - 50)  * p;
+      b = 10  + (50  - 10)  * p;
     }
     map.push([r / 255, g / 255, b / 255, 1.0]);
   }
   return map;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Zaman formatlayıcı: 65.3 → "1:05.3"
-// ─────────────────────────────────────────────────────────────────────────────
 function formatTime(sec) {
   if (!sec || !isFinite(sec)) return '0:00.0';
   const m = Math.floor(sec / 60);
@@ -38,53 +31,32 @@ function formatTime(sec) {
   return `${m}:${s.padStart(4, '0')}`;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// SpectrogramPanel — Tek bir ses kaynağı için WaveSurfer + Spectrogram
-//
-// Props:
-//   audioUrl       – ses dosyası URL'si
-//   label          – "Orijinal Ses" / "Temizlenmiş Ses"
-//   colorMap       – 256 elemanlı renk haritası
-//   speechFocus    – true ise frekans aralığı 300–4000 Hz olur
-//   onWsReady      – WaveSurfer instance hazır olduğunda üst bileşene bildir
-//   peerWsRef      – senkronize edilecek diğer panelin WaveSurfer ref'i
-//   isPlaying      – dışarıdan kontrol edilen playback durumu
-// ─────────────────────────────────────────────────────────────────────────────
-function SpectrogramPanel({ audioUrl, label, colorMap, speechFocus, onWsReady, peerWsRef, isPlaying }) {
-  const hiddenWaveRef = useRef(null);
+function SpectrogramPanel({ audioUrl, label, colorMap, speechFocus, onWsReady, peerWsRef }) {
+  const hiddenWaveRef       = useRef(null);
   const spectroContainerRef = useRef(null);
-  const wsRef = useRef(null);
-  const abortRef = useRef(null);
-  // Tooltip state
-  const [tooltip, setTooltip] = useState(null); // { x, y, time, freq } veya null
-  const [status, setStatus] = useState('idle');
+  const wsRef               = useRef(null);
+  const abortRef            = useRef(null);
+
+  const [tooltip,     setTooltip]     = useState(null);
+  const [status,      setStatus]      = useState('idle');
   const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
+  const [duration,    setDuration]    = useState(0);
+  const [isPlaying,   setIsPlaying]   = useState(false);
 
   const destroyInstance = useCallback(() => {
     if (wsRef.current) {
-      try {
-        wsRef.current.destroy();
-      } catch {
-        // sessizce yut
-      }
+      try { wsRef.current.destroy(); } catch {}
       wsRef.current = null;
     }
-
     if (onWsReady) onWsReady(null);
   }, [onWsReady]);
 
-  // ── WaveSurfer'ı oluştur / yeniden oluştur ──
   useEffect(() => {
     if (!audioUrl) {
       destroyInstance();
-      let cancelled = false;
-      queueMicrotask(() => {
-        if (!cancelled) setStatus('idle');
-      });
-      return () => {
-        cancelled = true;
-      };
+      setStatus('idle');
+      setIsPlaying(false);
+      return;
     }
 
     if (abortRef.current) abortRef.current.aborted = true;
@@ -92,38 +64,37 @@ function SpectrogramPanel({ audioUrl, label, colorMap, speechFocus, onWsReady, p
     abortRef.current = abortToken;
 
     destroyInstance();
+    setIsPlaying(false);
 
     if (!hiddenWaveRef.current || !spectroContainerRef.current) return;
 
-    queueMicrotask(() => {
-      if (!abortToken.aborted) setStatus('loading');
-    });
+    queueMicrotask(() => { if (!abortToken.aborted) setStatus('loading'); });
     spectroContainerRef.current.innerHTML = '';
 
     const ws = WaveSurfer.create({
-      container: hiddenWaveRef.current,
-      height: 1,
-      waveColor: 'transparent',
+      container:     hiddenWaveRef.current,
+      height:        1,
+      waveColor:     'transparent',
       progressColor: 'transparent',
-      // Playback cursor aktif — kullanıcı tıklayıp seek edebilir
-      cursorWidth: 2,
-      cursorColor: '#FA5D19',
-      interact: true,
+      cursorWidth:   2,
+      cursorColor:   '#FA5D19',
+      interact:      true,
       plugins: [
         SpectrogramPlugin.create({
-          container: spectroContainerRef.current,
-          fftSamples: 2048,
-          height: 200,
-          windowFunc: 'hann',
-          colorMap: colorMap,
-          labels: true,
-          labelsColor: '#AAAAAA',
-          labelsHzColor: '#666666',
+          container:        spectroContainerRef.current,
+          fftSamples:       2048,
+          height:           200,
+          windowFunc:       'hann',
+          colorMap:         colorMap,
+          labels:           true,
+          labelsColor:      '#AAAAAA',
+          labelsHzColor:    '#666666',
           labelsBackground: 'rgba(255,255,255,0.03)',
-          scale: 'linear',
-          gainDB: 2,
-          rangeDB: 80,
-          // Speech Focus: sadece konuşma bandı (300Hz–4kHz)
+          scale:            'linear',
+          gainDB:           2,
+          rangeDB:          60,
+          // frequencyMax'ı plugin'e bırak — buffer.sampleRate/2 olarak
+          // otomatik algılar. 8kHz ses → 0–4kHz, 16kHz ses → 0–8kHz.
           ...(speechFocus ? { frequencyMin: 300, frequencyMax: 4000 } : {}),
         }),
       ],
@@ -135,32 +106,31 @@ function SpectrogramPanel({ audioUrl, label, colorMap, speechFocus, onWsReady, p
       if (abortToken.aborted) return;
       setStatus('ready');
       setDuration(ws.getDuration());
-      // Üst bileşene bu ws instance'ı bildir (senkronizasyon için)
       if (onWsReady) onWsReady(ws);
     });
 
-    // Zaman güncellemesi — cursor pozisyonunu takip et
     ws.on('timeupdate', (time) => {
       if (abortToken.aborted) return;
       setCurrentTime(time);
     });
 
-    // Seek olayı — peer paneli de aynı pozisyona taşı (senkronize dinleme)
+    ws.on('finish', () => {
+      if (abortToken.aborted) return;
+      setIsPlaying(false);
+    });
+
     ws.on('seeking', (time) => {
       if (abortToken.aborted) return;
       if (peerWsRef?.current && peerWsRef.current !== ws) {
-        const peerDuration = peerWsRef.current.getDuration();
-        if (peerDuration > 0) {
-          peerWsRef.current.seekTo(time / peerDuration);
-        }
+        const d = peerWsRef.current.getDuration();
+        if (d > 0) peerWsRef.current.seekTo(time / d);
       }
     });
 
     ws.on('error', (err) => {
       if (abortToken.aborted) return;
-      const message = err?.message || String(err);
-      if (message.includes('aborted') || err?.name === 'AbortError') return;
-      console.error(`[SpectrogramPanel] ${label} hata:`, err);
+      const msg = err?.message || String(err);
+      if (msg.includes('aborted') || err?.name === 'AbortError') return;
       setStatus('error');
     });
 
@@ -170,39 +140,34 @@ function SpectrogramPanel({ audioUrl, label, colorMap, speechFocus, onWsReady, p
       abortToken.aborted = true;
       destroyInstance();
     };
-  }, [audioUrl, speechFocus, destroyInstance, colorMap, label, onWsReady, peerWsRef]); // speechFocus değişince yeniden oluştur
+  }, [audioUrl, speechFocus, destroyInstance, colorMap, label, onWsReady, peerWsRef]);
 
-  // ── Dışarıdan Play/Pause kontrolü ──
-  useEffect(() => {
+  function togglePlay() {
     if (!wsRef.current || status !== 'ready') return;
     if (isPlaying) {
-      wsRef.current.play();
-    } else {
       wsRef.current.pause();
+      setIsPlaying(false);
+    } else {
+      wsRef.current.play();
+      setIsPlaying(true);
     }
-  }, [isPlaying, status]);
+  }
 
-  // ── Tooltip: mouse hover'da frekans (Hz) ve zaman (s) göster ──
   const handleMouseMove = useCallback((e) => {
     const container = spectroContainerRef.current;
-    if (!container || !wsRef.current || status !== 'ready') {
-      setTooltip(null);
-      return;
-    }
+    if (!container || !wsRef.current || status !== 'ready') { setTooltip(null); return; }
     const rect = container.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
-    // Zaman: x pozisyonunun toplam genişliğe oranı × süre
     const totalDuration = wsRef.current.getDuration();
     const time = (x / rect.width) * totalDuration;
 
-    // Frekans: y pozisyonu (üst = yüksek frekans, alt = düşük frekans)
-    // Mel ölçeği kullanıldığı için lineer yaklaşım
-    const maxFreq = speechFocus ? 4000 : 22050;
+    const buf = wsRef.current?.getDecodedData?.();
+    const nyquist = buf ? buf.sampleRate / 2 : 8000;
+    const maxFreq = speechFocus ? 4000 : nyquist;
     const minFreq = speechFocus ? 300 : 0;
-    const freqRange = maxFreq - minFreq;
-    const freq = maxFreq - (y / rect.height) * freqRange;
+    const freq = maxFreq - (y / rect.height) * (maxFreq - minFreq);
 
     setTooltip({
       x: Math.min(x, rect.width - 140),
@@ -212,119 +177,125 @@ function SpectrogramPanel({ audioUrl, label, colorMap, speechFocus, onWsReady, p
     });
   }, [status, speechFocus]);
 
-  const handleMouseLeave = useCallback(() => {
-    setTooltip(null);
-  }, []);
+  const handleMouseLeave = useCallback(() => setTooltip(null), []);
 
   return (
     <div
       style={{
-        background: '#FFFFFF',
-        border: '1px solid #F0F0F0',
+        background:   '#FFFFFF',
+        border:       '1px solid #F0F0F0',
         borderRadius: '16px',
-        padding: '16px',
-        boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
-        overflow: 'hidden',
-        position: 'relative',
+        padding:      '16px',
+        boxShadow:    '0 2px 12px rgba(0,0,0,0.04)',
+        overflow:     'hidden',
+        position:     'relative',
       }}
     >
-      {/* Başlık + zaman göstergesi */}
+      {/* Başlık satırı */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-        <span
-          style={{
-            fontSize: '11px',
-            fontWeight: 700,
-            letterSpacing: '0.1em',
-            textTransform: 'uppercase',
-            color: '#AAAAAA',
-          }}
-        >
+        <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#AAAAAA' }}>
           {label}
         </span>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          {/* Oynatma zamanı */}
+          {/* Zaman */}
           {status === 'ready' && duration > 0 && (
-            <span
-              style={{
-                fontFamily: "'Space Grotesk', sans-serif",
-                fontSize: '12px',
-                fontWeight: 600,
-                color: '#666',
-                letterSpacing: '0.02em',
-              }}
-            >
+            <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: '12px', fontWeight: 600, color: '#666', letterSpacing: '0.02em' }}>
               {formatTime(currentTime)} / {formatTime(duration)}
             </span>
           )}
 
-          {/* Durum göstergesi */}
+          {/* Oynat / Duraklat — "Hazır" yazısının yerine */}
           {status === 'ready' && (
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#22C55E', fontWeight: 600 }}>
-              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#22C55E', display: 'inline-block' }} />
-              Hazır
-            </span>
+            <button
+              onClick={togglePlay}
+              title={isPlaying ? 'Duraklat' : 'Dinle'}
+              style={{
+                display:         'flex',
+                alignItems:      'center',
+                justifyContent:  'center',
+                gap:             '5px',
+                padding:         '5px 12px',
+                borderRadius:    '6px',
+                border:          'none',
+                cursor:          'pointer',
+                fontSize:        '12px',
+                fontWeight:      600,
+                fontFamily:      "'Inter', sans-serif",
+                transition:      'all 0.2s',
+                background:      isPlaying
+                  ? '#262626'
+                  : 'linear-gradient(135deg, #FA5D19, #FF7A40)',
+                color:           '#FFFFFF',
+                boxShadow:       isPlaying
+                  ? '0 2px 6px rgba(0,0,0,0.2)'
+                  : '0 2px 6px rgba(250,93,25,0.3)',
+              }}
+            >
+              {isPlaying ? (
+                <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor">
+                  <rect x="3" y="2" width="4" height="12" rx="1" />
+                  <rect x="9" y="2" width="4" height="12" rx="1" />
+                </svg>
+              ) : (
+                <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor">
+                  <path d="M4 2l10 6-10 6V2z" />
+                </svg>
+              )}
+              {isPlaying ? 'Duraklat' : 'Dinle'}
+            </button>
           )}
+
           {status === 'error' && (
             <span style={{ fontSize: '11px', color: '#EF4444', fontWeight: 600 }}>Hata</span>
           )}
         </div>
       </div>
 
-      {/* Gizli WaveSurfer dalga formu konteyneri */}
+      {/* Gizli WaveSurfer dalga formu */}
       <div
         ref={hiddenWaveRef}
-        style={{
-          width: '100%',
-          height: 1,
-          opacity: 0,
-          overflow: 'hidden',
-          position: 'absolute',
-          left: 0,
-          top: 0,
-          pointerEvents: 'none',
-        }}
+        style={{ width: '100%', height: 1, opacity: 0, overflow: 'hidden', position: 'absolute', left: 0, top: 0, pointerEvents: 'none' }}
       />
 
-      {/* Spektrogram çıktısı + tooltip katmanı */}
+      {/* Spektrogram */}
       <div
         ref={spectroContainerRef}
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
         style={{
-          width: '100%',
-          minHeight: '200px',
+          width:        '100%',
+          minHeight:    '200px',
           borderRadius: '10px',
-          overflow: 'hidden',
-          background: '#111111',
-          position: 'relative',
-          cursor: status === 'ready' ? 'crosshair' : 'default',
+          overflow:     'hidden',
+          background:   '#111111',
+          position:     'relative',
+          cursor:       status === 'ready' ? 'crosshair' : 'default',
         }}
       />
 
-      {/* Tooltip overlay — frekans ve zaman gösterici */}
+      {/* Tooltip */}
       {tooltip && status === 'ready' && (
         <div
           style={{
-            position: 'absolute',
-            left: tooltip.x + 16 + 'px',
-            top: tooltip.y + 40 + 'px',
-            background: 'rgba(38, 38, 38, 0.92)',
-            backdropFilter: 'blur(8px)',
+            position:           'absolute',
+            left:               tooltip.x + 16 + 'px',
+            top:                tooltip.y + 40 + 'px',
+            background:         'rgba(38,38,38,0.92)',
+            backdropFilter:     'blur(8px)',
             WebkitBackdropFilter: 'blur(8px)',
-            borderRadius: '8px',
-            padding: '8px 12px',
-            pointerEvents: 'none',
-            zIndex: 20,
-            border: '1px solid rgba(250, 93, 25, 0.3)',
-            boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
-            minWidth: '120px',
+            borderRadius:       '8px',
+            padding:            '8px 12px',
+            pointerEvents:      'none',
+            zIndex:             20,
+            border:             '1px solid rgba(250,93,25,0.3)',
+            boxShadow:          '0 4px 16px rgba(0,0,0,0.3)',
+            minWidth:           '120px',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#FA5D19" strokeWidth="2">
-              <circle cx="12" cy="12" r="10" />
-              <path d="M12 6v6l4 2" strokeLinecap="round" />
+              <circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" strokeLinecap="round" />
             </svg>
             <span style={{ fontSize: '12px', color: '#FFFFFF', fontWeight: 600, fontFamily: "'Space Grotesk', sans-serif" }}>
               {formatTime(tooltip.time)}
@@ -345,16 +316,16 @@ function SpectrogramPanel({ audioUrl, label, colorMap, speechFocus, onWsReady, p
       {status === 'loading' && (
         <div
           style={{
-            position: 'absolute',
-            inset: 0,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
+            position:       'absolute',
+            inset:          0,
+            display:        'flex',
+            flexDirection:  'column',
+            alignItems:     'center',
             justifyContent: 'center',
-            gap: '12px',
-            background: 'rgba(17,17,17,0.85)',
-            borderRadius: '10px',
-            zIndex: 5,
+            gap:            '12px',
+            background:     'rgba(17,17,17,0.85)',
+            borderRadius:   '10px',
+            zIndex:         5,
           }}
         >
           <svg className="animate-spin" width="28" height="28" viewBox="0 0 24 24" fill="none" style={{ color: '#FA5D19' }}>
@@ -368,75 +339,46 @@ function SpectrogramPanel({ audioUrl, label, colorMap, speechFocus, onWsReady, p
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Ana bileşen: Kontrol çubuğu + İki paneli yan yana render eder
-// ─────────────────────────────────────────────────────────────────────────────
 export default function SpectrogramView() {
   const { originalAudioUrl, cleanedAudioUrl } = useStore();
 
   const colorMap = useMemo(() => generateColorMap(), []);
-
-  // Playback kontrolü
-  const [isPlaying, setIsPlaying] = useState(false);
-  // Speech Focus toggle
   const [speechFocus, setSpeechFocus] = useState(false);
 
-  // İki panelin WaveSurfer instance'larını senkronize etmek için ref'ler
   const originalWsRef = useRef(null);
-  const cleanedWsRef = useRef(null);
-
-  // Panel hazır olduğunda ref'e kaydet
+  const cleanedWsRef  = useRef(null);
   const handleOriginalReady = useCallback((ws) => { originalWsRef.current = ws; }, []);
-  const handleCleanedReady = useCallback((ws) => { cleanedWsRef.current = ws; }, []);
-
-  // Senkronize Play/Pause toggle
-  function togglePlay() {
-    setIsPlaying((prev) => !prev);
-  }
-
-  // Senkronize Stop
-  function handleStop() {
-    setIsPlaying(false);
-    if (originalWsRef.current) {
-      originalWsRef.current.pause();
-      originalWsRef.current.seekTo(0);
-    }
-    if (cleanedWsRef.current) {
-      cleanedWsRef.current.pause();
-      cleanedWsRef.current.seekTo(0);
-    }
-  }
+  const handleCleanedReady  = useCallback((ws) => { cleanedWsRef.current  = ws; }, []);
 
   const hasAudio = originalAudioUrl || cleanedAudioUrl;
 
-  // Ses dosyası yoksa boş durum göster
   if (!hasAudio) {
     return (
       <div
         style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
+          display:        'flex',
+          flexDirection:  'column',
+          alignItems:     'center',
           justifyContent: 'center',
-          minHeight: '300px',
-          background: '#FFFFFF',
-          border: '1px solid #F0F0F0',
-          borderRadius: '20px',
-          padding: '40px',
-          boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+          minHeight:      '300px',
+          background:     '#FFFFFF',
+          border:         '1px solid #F0F0F0',
+          borderRadius:   '20px',
+          padding:        '40px',
+          boxShadow:      '0 2px 12px rgba(0,0,0,0.04)',
         }}
       >
         <div
           style={{
-            width: '64px',
-            height: '64px',
-            borderRadius: '50%',
-            background: 'linear-gradient(135deg, #FFF5F0, #FEE8DC)',
-            border: '2px solid rgba(250,93,25,0.15)',
-            display: 'flex',
-            alignItems: 'center',
+            width:          '64px',
+            height:         '64px',
+            borderRadius:   '50%',
+            background:     'linear-gradient(135deg, #FFF5F0, #FEE8DC)',
+            border:         '2px solid rgba(250,93,25,0.15)',
+            display:        'flex',
+            alignItems:     'center',
             justifyContent: 'center',
-            marginBottom: '16px',
+            marginBottom:   '16px',
           }}
         >
           <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#FA5D19" strokeWidth="1.5">
@@ -455,108 +397,36 @@ export default function SpectrogramView() {
 
   return (
     <div>
-      {/* ── Kontrol Çubuğu ── */}
+      {/* ── Kontrol Çubuğu — sadece Speech Focus ── */}
       <div
         style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '10px',
-          marginBottom: '16px',
-          background: '#FFFFFF',
-          border: '1px solid #F0F0F0',
-          borderRadius: '12px',
-          padding: '10px 16px',
-          boxShadow: '0 1px 6px rgba(0,0,0,0.03)',
+          display:        'flex',
+          alignItems:     'center',
+          justifyContent: 'flex-end',
+          marginBottom:   '16px',
+          background:     '#FFFFFF',
+          border:         '1px solid #F0F0F0',
+          borderRadius:   '12px',
+          padding:        '10px 16px',
+          boxShadow:      '0 1px 6px rgba(0,0,0,0.03)',
         }}
       >
-        {/* Sol: Playback butonları */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          {/* Play / Pause */}
-          <button
-            onClick={togglePlay}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '6px',
-              padding: '8px 16px',
-              borderRadius: '8px',
-              border: 'none',
-              cursor: 'pointer',
-              fontSize: '13px',
-              fontWeight: 600,
-              transition: 'all 0.2s',
-              background: isPlaying ? '#262626' : 'linear-gradient(135deg, #FA5D19, #FF7A40)',
-              color: '#FFFFFF',
-              boxShadow: isPlaying ? '0 2px 8px rgba(0,0,0,0.15)' : '0 2px 8px rgba(250,93,25,0.25)',
-              fontFamily: "'Inter', sans-serif",
-            }}
-          >
-            {isPlaying ? (
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-                <rect x="3" y="2" width="4" height="12" rx="1" />
-                <rect x="9" y="2" width="4" height="12" rx="1" />
-              </svg>
-            ) : (
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-                <path d="M4 2l10 6-10 6V2z" />
-              </svg>
-            )}
-            {isPlaying ? 'Duraklat' : 'A/B Dinle'}
-          </button>
-
-          {/* Stop */}
-          <button
-            onClick={handleStop}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: '34px',
-              height: '34px',
-              borderRadius: '8px',
-              border: '1.5px solid #E5E5E5',
-              background: 'transparent',
-              cursor: 'pointer',
-              transition: 'all 0.2s',
-              color: '#888',
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#262626'; e.currentTarget.style.color = '#262626'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#E5E5E5'; e.currentTarget.style.color = '#888'; }}
-            title="Başa dön"
-          >
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-              <rect x="3" y="3" width="10" height="10" rx="1" />
-            </svg>
-          </button>
-
-          {/* Senkronize bilgi */}
-          {originalAudioUrl && cleanedAudioUrl && (
-            <span style={{ fontSize: '11px', color: '#AAAAAA', fontWeight: 500, marginLeft: '4px' }}>
-              ↔ Senkronize
-            </span>
-          )}
-        </div>
-
-        {/* Sağ: Speech Focus toggle */}
         <button
           onClick={() => setSpeechFocus(!speechFocus)}
           style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '7px 14px',
-            borderRadius: '8px',
-            border: speechFocus ? '1.5px solid #FA5D19' : '1.5px solid #E5E5E5',
-            background: speechFocus ? '#FFF5F0' : 'transparent',
-            color: speechFocus ? '#FA5D19' : '#888',
-            fontSize: '12px',
-            fontWeight: 600,
-            cursor: 'pointer',
-            transition: 'all 0.2s',
-            fontFamily: "'Inter', sans-serif",
+            display:     'flex',
+            alignItems:  'center',
+            gap:         '6px',
+            padding:     '7px 14px',
+            borderRadius:'8px',
+            border:      speechFocus ? '1.5px solid #FA5D19' : '1.5px solid #E5E5E5',
+            background:  speechFocus ? '#FFF5F0' : 'transparent',
+            color:       speechFocus ? '#FA5D19' : '#888',
+            fontSize:    '12px',
+            fontWeight:  600,
+            cursor:      'pointer',
+            transition:  'all 0.2s',
+            fontFamily:  "'Inter', sans-serif",
           }}
           onMouseEnter={(e) => { if (!speechFocus) { e.currentTarget.style.borderColor = '#FA5D19'; e.currentTarget.style.color = '#FA5D19'; } }}
           onMouseLeave={(e) => { if (!speechFocus) { e.currentTarget.style.borderColor = '#E5E5E5'; e.currentTarget.style.color = '#888'; } }}
@@ -571,9 +441,8 @@ export default function SpectrogramView() {
         </button>
       </div>
 
-      {/* ── Spektrogram Grid ── */}
+      {/* ── Spektrogram panelleri ── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px' }}>
-        {/* Orijinal Ses Spektrogramı */}
         {originalAudioUrl && (
           <SpectrogramPanel
             audioUrl={originalAudioUrl}
@@ -582,11 +451,9 @@ export default function SpectrogramView() {
             speechFocus={speechFocus}
             onWsReady={handleOriginalReady}
             peerWsRef={cleanedWsRef}
-            isPlaying={isPlaying}
           />
         )}
 
-        {/* Temizlenmiş Ses Spektrogramı */}
         {cleanedAudioUrl ? (
           <SpectrogramPanel
             audioUrl={cleanedAudioUrl}
@@ -595,44 +462,31 @@ export default function SpectrogramView() {
             speechFocus={speechFocus}
             onWsReady={handleCleanedReady}
             peerWsRef={originalWsRef}
-            isPlaying={isPlaying}
           />
         ) : (
           <div
             style={{
-              background: '#FFFFFF',
-              border: '1px solid #F0F0F0',
+              background:   '#FFFFFF',
+              border:       '1px solid #F0F0F0',
               borderRadius: '16px',
-              padding: '16px',
-              boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+              padding:      '16px',
+              boxShadow:    '0 2px 12px rgba(0,0,0,0.04)',
             }}
           >
-            <span
-              style={{
-                fontSize: '11px',
-                fontWeight: 700,
-                letterSpacing: '0.1em',
-                textTransform: 'uppercase',
-                color: '#AAAAAA',
-                display: 'block',
-                marginBottom: '12px',
-              }}
-            >
+            <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#AAAAAA', display: 'block', marginBottom: '12px' }}>
               Temizlenmiş Ses
             </span>
             <div
               style={{
-                minHeight: '200px',
-                borderRadius: '10px',
-                background: '#F5F5F5',
-                display: 'flex',
-                alignItems: 'center',
+                minHeight:      '200px',
+                borderRadius:   '10px',
+                background:     '#F5F5F5',
+                display:        'flex',
+                alignItems:     'center',
                 justifyContent: 'center',
               }}
             >
-              <span style={{ fontSize: '13px', color: '#BBBBBB', fontWeight: 500 }}>
-                Henüz işlenmedi
-              </span>
+              <span style={{ fontSize: '13px', color: '#BBBBBB', fontWeight: 500 }}>Henüz işlenmedi</span>
             </div>
           </div>
         )}

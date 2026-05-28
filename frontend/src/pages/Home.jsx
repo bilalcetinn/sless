@@ -113,12 +113,9 @@ export default function Home() {
 
   // Tab tanımları
   const tabs = [
-    { key: 'main', label: 'Ses Temizle', icon: '🎙' },
-    { key: 'compare', label: 'Model Karşılaştır', icon: '⚖' },
+    { key: 'main', label: 'Ses Temizle' },
+    { key: 'compare', label: 'Model Karşılaştır' },
   ];
-  if (user) {
-    tabs.push({ key: 'history', label: 'Geçmişim', icon: '📋' });
-  }
 
   return (
     <div style={{ minHeight: '100vh', background: '#F9F9F9' }}>
@@ -128,28 +125,6 @@ export default function Home() {
       {/* Hero Bölümü */}
       <section style={{ textAlign: 'center', padding: '56px 0 40px' }}>
         <div style={{ maxWidth: '1280px', margin: '0 auto', padding: '0 24px' }}>
-          {/* Badge */}
-          <div
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              background: '#FEE8DC',
-              color: '#FA5D19',
-              padding: '6px 14px',
-              borderRadius: '20px',
-              fontSize: '11px',
-              fontWeight: 700,
-              letterSpacing: '0.1em',
-              textTransform: 'uppercase',
-              marginBottom: '20px',
-              border: '1px solid rgba(250,93,25,0.2)',
-            }}
-          >
-            <span style={{ width: '6px', height: '6px', background: '#FA5D19', borderRadius: '50%', display: 'inline-block' }} />
-            AI DESTEKLİ SES TEMİZLEME
-          </div>
-
           {/* Ana Başlık */}
           <h1
             style={{
@@ -175,37 +150,51 @@ export default function Home() {
               lineHeight: 1.7,
             }}
           >
-            Yapay zeka destekli gürültü giderme teknolojisi ile konuşma kalitesini artırın
+            Gürültü giderme modellerimiz ile konuşma kalitesini artırın
           </p>
         </div>
       </section>
 
       {/* Sekme Seçici */}
       <div style={{ maxWidth: '1280px', margin: '32px auto 24px', padding: '0 24px', display: 'flex', justifyContent: 'center' }}>
-        <div style={{ background: '#EFEFEF', borderRadius: '12px', padding: '4px', display: 'inline-flex', gap: '2px' }}>
+        <div style={{ background: '#EFEFEF', borderRadius: '12px', padding: '4px', display: 'inline-flex', width: '360px', position: 'relative', zIndex: 1 }}>
+          {/* Kayar Beyaz Arka Plan */}
+          <div
+            style={{
+              position: 'absolute',
+              top: '4px',
+              bottom: '4px',
+              left: activeTab === 'main' ? '4px' : 'calc(50% + 2px)',
+              width: 'calc(50% - 6px)',
+              background: '#FFFFFF',
+              borderRadius: '9px',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+              transition: 'left 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+              zIndex: -1,
+            }}
+          />
           {tabs.map((tab) => (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
               style={{
-                padding: '10px 24px',
+                width: '50%',
+                padding: '10px 0',
                 borderRadius: '9px',
                 border: 'none',
                 fontWeight: activeTab === tab.key ? 600 : 500,
                 fontSize: '14px',
                 cursor: 'pointer',
-                transition: 'all 0.2s',
-                background: activeTab === tab.key ? '#FFFFFF' : 'transparent',
+                transition: 'color 0.3s',
+                background: 'transparent',
                 color: activeTab === tab.key ? '#262626' : '#888',
-                boxShadow: activeTab === tab.key ? '0 2px 8px rgba(0,0,0,0.08)' : 'none',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
                 fontFamily: "'Inter', sans-serif",
+                position: 'relative',
+                zIndex: 2,
+                textAlign: 'center',
               }}
               id={`tab-${tab.key}`}
             >
-              <span>{tab.icon}</span>
               {tab.label}
             </button>
           ))}
@@ -298,7 +287,37 @@ export default function Home() {
             <div>
               {/* Görünüm Sekmeleri */}
               <div style={{ marginBottom: '16px' }}>
-                <div style={{ display: 'inline-flex', background: '#F5F5F5', borderRadius: '10px', padding: '4px' }}>
+                <div
+                  className="view-tab-container"
+                  style={{
+                    display: 'inline-flex',
+                    background: '#F5F5F5',
+                    borderRadius: '10px',
+                    padding: '4px',
+                    position: 'relative',
+                    zIndex: 1,
+                    width: '360px',
+                  }}
+                >
+                  {/* Kayar Siyah Arka Plan */}
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: '4px',
+                      bottom: '4px',
+                      left:
+                        activeView === 'waveform'
+                          ? '4px'
+                          : activeView === 'spectrogram'
+                            ? 'calc(33.333% + 1.33px)'
+                            : 'calc(66.666% - 1.33px)',
+                      width: 'calc(33.333% - 2.66px)',
+                      background: '#262626',
+                      borderRadius: '8px',
+                      transition: 'left 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                      zIndex: -1,
+                    }}
+                  />
                   {[
                     { key: 'waveform', label: 'Dalga Formu', icon: (
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -320,20 +339,25 @@ export default function Home() {
                     <button
                       key={tab.key}
                       onClick={() => setActiveView(tab.key)}
+                      className="view-tab-button"
                       style={{
+                        width: '33.333%',
                         display: 'flex',
                         alignItems: 'center',
+                        justifyContent: 'center',
                         gap: '6px',
-                        padding: '8px 16px',
+                        padding: '8px 0',
                         borderRadius: '8px',
                         border: 'none',
                         fontSize: '13px',
                         fontWeight: 600,
                         cursor: 'pointer',
-                        transition: 'all 0.2s',
-                        background: activeView === tab.key ? '#262626' : 'transparent',
+                        transition: 'color 0.3s',
+                        background: 'transparent',
                         color: activeView === tab.key ? '#FFFFFF' : '#888888',
                         fontFamily: "'Inter', sans-serif",
+                        position: 'relative',
+                        zIndex: 2,
                       }}
                       id={`view-${tab.key}`}
                     >
@@ -389,6 +413,14 @@ export default function Home() {
         @media (max-width: 768px) {
           [style*="grid-template-columns: 480px 1fr"] {
             grid-template-columns: 1fr !important;
+          }
+        }
+        @media (max-width: 640px) {
+          .view-tab-container {
+            width: 144px !important;
+          }
+          .view-tab-button {
+            width: 48px !important;
           }
         }
       `}</style>
