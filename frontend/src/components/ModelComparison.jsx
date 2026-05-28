@@ -6,17 +6,11 @@ import WaveformViewer from './WaveformViewer';
 export default function ModelComparison() {
   const { recordId, models, setModels } = useStore();
 
-  // Sol panel state
   const [leftModelId, setLeftModelId] = useState(null);
-  const [leftNoise, setLeftNoise] = useState(50);
-  const [leftSensitivity, setLeftSensitivity] = useState(50);
   const [leftResult, setLeftResult] = useState(null);
   const [leftLoading, setLeftLoading] = useState(false);
 
-  // Sağ panel state
   const [rightModelId, setRightModelId] = useState(null);
-  const [rightNoise, setRightNoise] = useState(50);
-  const [rightSensitivity, setRightSensitivity] = useState(50);
   const [rightResult, setRightResult] = useState(null);
   const [rightLoading, setRightLoading] = useState(false);
 
@@ -25,8 +19,8 @@ export default function ModelComparison() {
       try {
         const data = await fetchModels();
         setModels(data);
-        setLeftModelId((current) => current || data[0]?.id || null);
-        setRightModelId((current) => current || data[1]?.id || data[0]?.id || null);
+        setLeftModelId((cur) => cur || data[0]?.id || null);
+        setRightModelId((cur) => cur || data[1]?.id || data[0]?.id || null);
       } catch (err) {
         console.error('Modeller yüklenemedi:', err);
       }
@@ -34,45 +28,23 @@ export default function ModelComparison() {
     loadModels();
   }, [setModels]);
 
-  async function processLeft() {
-    if (!recordId || !leftModelId) return;
+  async function processPanel(modelId, setLoading, setResult) {
+    if (!recordId || !modelId) return;
     try {
-      setLeftLoading(true);
-      const result = await processWithModel(recordId, leftModelId, leftNoise, leftSensitivity);
-      setLeftResult({
-        recordId: result.record_id,
+      setLoading(true);
+      const result = await processWithModel(recordId, modelId, 100, 0);
+      setResult({
         modelName: result.model_name,
-        cleanedAudioUrl: `http://localhost:8001/files/${result.cleaned_file_path}`,
-        status: result.status,
+        cleanedAudioUrl: `http://localhost:8000/files/${result.cleaned_file_path}`,
       });
     } catch (err) {
-      console.error('Sol model işlenirken hata oluştu:', err);
-      alert('Sol model işlenirken hata oluştu.');
+      console.error('Model işlenirken hata:', err);
+      alert('Model işlenirken hata oluştu.');
     } finally {
-      setLeftLoading(false);
+      setLoading(false);
     }
   }
 
-  async function processRight() {
-    if (!recordId || !rightModelId) return;
-    try {
-      setRightLoading(true);
-      const result = await processWithModel(recordId, rightModelId, rightNoise, rightSensitivity);
-      setRightResult({
-        recordId: result.record_id,
-        modelName: result.model_name,
-        cleanedAudioUrl: `http://localhost:8001/files/${result.cleaned_file_path}`,
-        status: result.status,
-      });
-    } catch (err) {
-      console.error('Sağ model işlenirken hata oluştu:', err);
-      alert('Sağ model işlenirken hata oluştu.');
-    } finally {
-      setRightLoading(false);
-    }
-  }
-
-  // recordId yoksa uyarı göster
   if (!recordId) {
     return (
       <div className="flex flex-col items-center justify-center py-20 space-y-4 animate-fade-in">
@@ -89,16 +61,20 @@ export default function ModelComparison() {
     );
   }
 
-  function renderPanel(side, modelId, setModelId, noise, setNoise, sensitivity, setSensitivity, result, isLoading, onProcess) {
-    const sideLabel = side === 'left' ? 'Sol' : 'Sağ';
+  function renderPanel(side, modelId, setModelId, result, isLoading, onProcess) {
+    const label = side === 'left' ? 'Sol Model' : 'Sağ Model';
     return (
       <div className="bg-white border border-app-gray rounded-xl p-5 space-y-4">
-        <h3 className="text-sm font-semibold text-app-dark">{sideLabel} Model</h3>
+        <h3 className="text-sm font-semibold text-app-dark">{label}</h3>
 
-        {/* Model Seçimi */}
         <select
           value={modelId || ''}
-          onChange={(e) => setModelId(Number(e.target.value))}
+          onChange={(e) => {
+            setModelId(Number(e.target.value));
+            /* seçim değişince eski sonucu sıfırla */
+            if (side === 'left') setLeftResult(null);
+            else setRightResult(null);
+          }}
           className="w-full px-4 py-2.5 border border-app-gray rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-app-orange/30 focus:border-app-orange"
         >
           <option value="" disabled>Model seçin</option>
@@ -107,40 +83,22 @@ export default function ModelComparison() {
           ))}
         </select>
 
-        {/* Slider: Gürültü */}
-        <div className="space-y-1">
-          <div className="flex justify-between text-xs">
-            <span className="text-app-dark/60">Gürültü Azaltma</span>
-            <span className="font-bold text-app-orange">{noise}</span>
-          </div>
-          <input type="range" min="0" max="100" value={noise} onChange={(e) => setNoise(Number(e.target.value))} className="w-full" />
-        </div>
-
-        {/* Slider: Hassasiyet */}
-        <div className="space-y-1">
-          <div className="flex justify-between text-xs">
-            <span className="text-app-dark/60">Filtre Hassasiyeti</span>
-            <span className="font-bold text-app-orange">{sensitivity}</span>
-          </div>
-          <input type="range" min="0" max="100" value={sensitivity} onChange={(e) => setSensitivity(Number(e.target.value))} className="w-full" />
-        </div>
-
-        {/* İşle Butonu */}
         <button
           onClick={onProcess}
           disabled={isLoading || !modelId}
           className="w-full py-2.5 bg-app-orange text-white font-semibold rounded-lg hover:bg-app-orange-light transition-all disabled:opacity-50 flex items-center justify-center gap-2 text-sm"
         >
-          {isLoading && (
-            <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
-              <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" opacity="0.2" />
-              <path d="M12 2a10 10 0 0110 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
-            </svg>
-          )}
-          Bu Modelle İşle
+          {isLoading ? (
+            <>
+              <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" opacity="0.2" />
+                <path d="M12 2a10 10 0 0110 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+              </svg>
+              İşleniyor...
+            </>
+          ) : 'Bu Modelle İşle'}
         </button>
 
-        {/* Sonuç */}
         {result && (
           <div className="space-y-2 animate-fade-in">
             <p className="text-xs text-green-600 font-medium">✓ {result.modelName} ile işlendi</p>
@@ -160,10 +118,9 @@ export default function ModelComparison() {
         </p>
       </div>
 
-      {/* İki Panel */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {renderPanel('left', leftModelId, setLeftModelId, leftNoise, setLeftNoise, leftSensitivity, setLeftSensitivity, leftResult, leftLoading, processLeft)}
-        {renderPanel('right', rightModelId, setRightModelId, rightNoise, setRightNoise, rightSensitivity, setRightSensitivity, rightResult, rightLoading, processRight)}
+        {renderPanel('left',  leftModelId,  setLeftModelId,  leftResult,  leftLoading,  () => processPanel(leftModelId,  setLeftLoading,  setLeftResult))}
+        {renderPanel('right', rightModelId, setRightModelId, rightResult, rightLoading, () => processPanel(rightModelId, setRightLoading, setRightResult))}
       </div>
     </div>
   );

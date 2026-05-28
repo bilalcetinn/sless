@@ -54,7 +54,7 @@ export default function HistoryPanel({ showHeader = true }) {
       audioElement.pause();
     }
 
-    const url = `http://localhost:8001/files/${record.cleaned_file_path}`;
+    const url = `http://localhost:8000/files/${record.cleaned_file_path}`;
     const audio = new Audio(url);
     audio.play();
     audio.onended = () => {

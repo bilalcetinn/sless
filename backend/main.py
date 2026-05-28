@@ -504,8 +504,8 @@ async def process_with_model(request: Request):
     body = await request.json()
     record_id = body.get("record_id")
     model_id = body.get("model_id")
-    noise_level = body.get("noise_level", 50.0)
-    filter_sensitivity = body.get("filter_sensitivity", 50.0)
+    noise_level = body.get("noise_level", 100.0)
+    filter_sensitivity = body.get("filter_sensitivity", 0.0)
 
     if not record_id or not model_id:
         raise HTTPException(

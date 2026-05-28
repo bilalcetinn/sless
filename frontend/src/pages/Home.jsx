@@ -54,8 +54,8 @@ export default function Home() {
       const formData = new FormData();
       formData.append('file', uploadedFile);
       formData.append('model_id', selectedModelId);
-      formData.append('noise_level', 50);
-      formData.append('filter_sensitivity', 50);
+      formData.append('noise_level', 100);
+      formData.append('filter_sensitivity', 0);
       if (token) formData.append('token', token);
 
       const uploadResult = await uploadAudio(formData, (pct) => {
@@ -64,7 +64,7 @@ export default function Home() {
 
       const recordId = uploadResult.record_id;
       setRecordId(recordId);
-      setOriginalAudioUrl(`http://localhost:8001/files/${uploadResult.original_file}`);
+      setOriginalAudioUrl(`http://localhost:8000/files/${uploadResult.original_file}`);
 
       // Ön işleme
       setProcessingStatus('processing');
@@ -85,7 +85,7 @@ export default function Home() {
         try {
           const statusResult = await getStatus(recordId);
           if (statusResult.status === 'done') {
-            setCleanedAudioUrl(`http://localhost:8001/files/${statusResult.cleaned_file_path}`);
+            setCleanedAudioUrl(`http://localhost:8000/files/${statusResult.cleaned_file_path}`);
             setProcessingStatus('done');
             setActiveView('waveform');
             done = true;
