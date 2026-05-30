@@ -13,9 +13,10 @@ sless/
 ├── backend/
 │   ├── main.py              # FastAPI ana uygulama ve endpointler
 │   ├── database.py          # SQLite baglantisi, tablo kurulumu ve sabit model seed'i
-│   ├── model_runner.py      # FRCRN, GTCRN, FullSubNet+ ve MossFormerGAN calistirma katmani
+│   ├── model_runner.py      # FRCRN, GTCRN, SGMSE+, FullSubNet+ ve MossFormerGAN calistirma katmani
 │   ├── frcrn.py             # FRCRN model mimarisi
 │   ├── gtcrn.py             # GTCRN model mimarisi
+│   ├── sgmse_plus.py        # SGMSE+ model mimarisi
 │   ├── requirements.txt     # Python bagimliliklari
 │   ├── setup_models.sh      # Harici model kutuphanelerini backend/libs altina kurar
 │   └── sless.db             # Yerel SQLite veritabani
@@ -50,7 +51,8 @@ models/
 ├── mossformergan-best_model.pt
 ├── fullsubnet+-best_model.pt
 ├── frcrn_best_model.pt
-└── gtcrn_best_model.pt
+├── gtcrn_best_model.pt
+└── sgmse_plus_best_model.pt
 ```
 
 Model dosyalarini repoda saklamak gerekiyorsa normal Git yerine Git LFS veya GitHub Releases kullanin.
@@ -134,7 +136,7 @@ Yerel test veritabani Git'e veri kaybi olmamasi icin repoda bulunabilir; ancak a
 
 ## Sabit Modeller
 
-UI'da model ekleme akisi kaldirildi. Uygulama yalnizca veritabaninda seed edilen su 4 modeli kullanir:
+UI'da model ekleme akisi kaldirildi. Uygulama yalnizca veritabaninda seed edilen su 5 modeli kullanir:
 
 | Model | Beklenen dosya |
 |-------|----------------|
@@ -142,6 +144,7 @@ UI'da model ekleme akisi kaldirildi. Uygulama yalnizca veritabaninda seed edilen
 | FullSubNet+ Best Model | `models/fullsubnet+-best_model.pt` |
 | FRCRN Best Model | `models/frcrn_best_model.pt` |
 | GTCRN Best Model | `models/gtcrn_best_model.pt` |
+| SGMSE+ Best Model | `models/sgmse_plus_best_model.pt` |
 
 Sabit model listesi [backend/database.py](backend/database.py) icindeki `FIXED_MODELS` alanindan yonetilir.
 
@@ -193,8 +196,9 @@ backend\venv\Scripts\python.exe -m py_compile backend\main.py backend\database.p
 
 Son `master` durumundan sonra yapilan ana guncellemeler:
 
-- UI model ekleme akisi kaldirildi; uygulama sabit 4 model uzerinden calisacak sekilde duzenlendi.
-- Veritabani seed mantigi `MossFormerGAN`, `FullSubNet+`, `FRCRN` ve `GTCRN` modellerine gore guncellendi.
+- UI model ekleme akisi kaldirildi; uygulama sabit 5 model uzerinden calisacak sekilde duzenlendi.
+- SGMSE+ modeli sabit model listesine ve backend inference akisine eklendi.
+- Veritabani seed mantigi `MossFormerGAN`, `FullSubNet+`, `FRCRN`, `GTCRN` ve `SGMSE+` modellerine gore guncellendi.
 - `asker` test kullanicisinin sifresi yerel test icin `123456` olarak sifirlandi.
 - Model karsilastirma ekraninda iki panelin de islem sirasinda birlikte yukleme durumuna gecmesi saglandi.
 - Temizlenmis ses icin dalga formu panellerine kucuk indirme butonu eklendi.

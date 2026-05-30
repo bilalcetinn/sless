@@ -4,6 +4,7 @@ SLESS — Model Yükleme ve Çalıştırma Modülü
 Desteklenen modeller:
   - FRCRN          (sless/backend/frcrn.py)
   - GTCRN          (sless/backend/gtcrn.py)
+  - SGMSE+         (sless/backend/sgmse_plus.py)
   - FullSubNet+    (RookieJunChen/FullSubNet-plus)
   - MossFormerGAN  (modelscope/ClearerVoice-Studio)
 
@@ -83,6 +84,14 @@ def _detect_model_type(checkpoint_path: str) -> str:
     first = keys[0].replace("module.", "")
     all_keys_str = "".join(k.replace("module.", "") for k in keys[:10])
 
+    key_set = {k.replace("module.", "") for k in keys}
+
+    if {
+        "time_emb.mlp.0.weight",
+        "in_proj.weight",
+        "out.weight",
+    }.issubset(key_set):
+        return "sgmse_plus"
     if first.startswith("enc1."):
         return "frcrn"
     if first.startswith("encoder.0.net"):
@@ -94,7 +103,7 @@ def _detect_model_type(checkpoint_path: str) -> str:
 
     raise ValueError(
         f"Bilinmeyen model türü. İlk anahtar: '{first}'\n"
-        "Desteklenen: FRCRN, GTCRN, FullSubNet+, MossFormerGAN."
+        "Desteklenen: FRCRN, GTCRN, SGMSE+, FullSubNet+, MossFormerGAN."
     )
 
 
@@ -170,6 +179,71 @@ def _run_gtcrn_inference(model, audio: np.ndarray, sr: int, cfg: dict) -> np.nda
     with torch.no_grad():
         enhanced = model(audio_t)  # [1, T]
     return enhanced.squeeze(0).numpy()
+
+
+# ── SGMSE+ ──────────────────────────────────────────────────
+
+def _load_sgmse_plus(checkpoint_path: str):
+    _add_path(BACKEND_DIR)
+    import torch
+    from sgmse_plus import SGMSEPlusNet
+
+    ckpt = torch.load(checkpoint_path, map_location=DEVICE, weights_only=False)
+    cfg = ckpt.get("config", ckpt.get("CFG", {}))
+    state_key = "model_state" if "model_state" in ckpt else "model_state_dict"
+    state = {k.replace("module.", ""): v for k, v in ckpt[state_key].items()}
+
+    base_ch = int(state["in_proj.weight"].shape[0])
+    time_dim = int(state["time_emb.mlp.0.weight"].shape[1])
+
+    model = SGMSEPlusNet(
+        n_fft=cfg.get("n_fft", 512),
+        hop_length=cfg.get("hop_length", 128),
+        base_ch=cfg.get("base_ch", base_ch),
+        time_dim=cfg.get("time_dim", time_dim),
+    )
+
+    model.load_state_dict(state, strict=True)
+    model.eval()
+    return model, cfg
+
+
+def _run_sgmse_plus_inference(model, audio: np.ndarray, sr: int, cfg: dict) -> np.ndarray:
+    import torch
+
+    segment_samples = int(cfg.get("segment_samples", 64000))
+    original_len = len(audio)
+    enhanced_chunks = []
+
+    # Notebook inference used t=0.5 with random perturbation. A fixed seed keeps
+    # app results reproducible while preserving the trained inference shape.
+    generator = torch.Generator(device=DEVICE).manual_seed(0)
+
+    for start in range(0, original_len, segment_samples):
+        chunk = audio[start : start + segment_samples]
+        chunk_actual_len = len(chunk)
+
+        if chunk_actual_len < segment_samples:
+            chunk = np.pad(chunk, (0, segment_samples - chunk_actual_len))
+
+        noisy = torch.from_numpy(chunk).float().unsqueeze(0)
+        t = torch.full((1,), 0.5)
+        diffusion_noise = torch.randn(
+            noisy.shape,
+            generator=generator,
+            dtype=noisy.dtype,
+        ) * 0.25
+        perturbed = torch.nan_to_num(noisy + diffusion_noise)
+
+        with torch.no_grad():
+            enhanced = model(noisy, perturbed, t)
+
+        enhanced_chunks.append(enhanced.squeeze(0).numpy()[:chunk_actual_len])
+
+    if not enhanced_chunks:
+        return np.array([], dtype="float32")
+
+    return np.concatenate(enhanced_chunks).astype("float32", copy=False)
 
 
 # ── FullSubNet+ ─────────────────────────────────────────────
@@ -408,6 +482,8 @@ class ModelRunner:
             model, cfg = _load_frcrn(resolved)
         elif model_type == "gtcrn":
             model, cfg = _load_gtcrn(resolved)
+        elif model_type == "sgmse_plus":
+            model, cfg = _load_sgmse_plus(resolved)
         elif model_type == "fullsubnet_plus":
             model, cfg = _load_fullsubnet_plus(resolved)
         elif model_type == "mossformergan":
@@ -460,6 +536,8 @@ class ModelRunner:
             enhanced = _run_frcrn_inference(model, audio_normed, sr, cfg)
         elif model_type == "gtcrn":
             enhanced = _run_gtcrn_inference(model, audio_normed, sr, cfg)
+        elif model_type == "sgmse_plus":
+            enhanced = _run_sgmse_plus_inference(model, audio_normed, sr, cfg)
         elif model_type == "fullsubnet_plus":
             enhanced = _run_fullsubnet_inference(model, audio_normed, sr, cfg)
         else:

@@ -9,6 +9,7 @@ mossformergan-best_model.pt
 fullsubnet+-best_model.pt
 frcrn_best_model.pt
 gtcrn_best_model.pt
+sgmse_plus_best_model.pt
 ```
 
 Bu `.pt` dosyalari Git'e eklenmez. `frcrn_best_model.pt` ve `fullsubnet+-best_model.pt` GitHub'in normal 100 MB dosya limitini astigi icin model dosyalarini yerel olarak bu klasore koyun.

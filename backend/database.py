@@ -30,6 +30,11 @@ FIXED_MODELS = [
         "models/gtcrn_best_model.pt",
         "GTCRN tabanlı gürültü giderme modeli",
     ),
+    (
+        "SGMSE+ Best Model",
+        "models/sgmse_plus_best_model.pt",
+        "SGMSE+ tabanlı score-based gürültü giderme modeli",
+    ),
 ]
 
 
@@ -103,7 +108,7 @@ async def init_db():
         await db.commit()
 
         # ── Sabit model listesi ──
-        # UI'da model yükleme/silme yok; sadece bu 4 checkpoint seçilebilir.
+        # UI'da model yükleme/silme yok; sadece bu 5 checkpoint seçilebilir.
         fixed_paths = [model[1] for model in FIXED_MODELS]
         placeholders = ",".join("?" for _ in fixed_paths)
         await db.execute(
