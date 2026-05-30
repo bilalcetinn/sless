@@ -100,8 +100,11 @@ function applyVertexColors(colors, heights, mode) {
 }
 
 // ─── Ana Bileşen ────────────────────────────────────────────────────────────
-export default function ThreeDSpectro() {
-  const { originalAudioUrl, cleanedAudioUrl, processingStatus } = useStore();
+export default function ThreeDSpectro({ originalUrl, cleanedUrl, status }) {
+  const store = useStore();
+  const originalAudioUrl = originalUrl ?? store.originalAudioUrl;
+  const cleanedAudioUrl = cleanedUrl ?? store.cleanedAudioUrl;
+  const processingStatus = status ?? store.processingStatus;
   const containerRef = useRef(null);
 
   // Three.js referansları

@@ -46,7 +46,11 @@ function SpectrogramPanel({ audioUrl, label, colorMap, speechFocus, onWsReady, p
 
   const destroyInstance = useCallback(() => {
     if (wsRef.current) {
-      try { wsRef.current.destroy(); } catch {}
+      try {
+        wsRef.current.destroy();
+      } catch (err) {
+        console.warn('Spectrogram instance kapatılırken hata oluştu:', err);
+      }
       wsRef.current = null;
     }
     if (onWsReady) onWsReady(null);
@@ -55,8 +59,10 @@ function SpectrogramPanel({ audioUrl, label, colorMap, speechFocus, onWsReady, p
   useEffect(() => {
     if (!audioUrl) {
       destroyInstance();
-      setStatus('idle');
-      setIsPlaying(false);
+      queueMicrotask(() => {
+        setStatus('idle');
+        setIsPlaying(false);
+      });
       return;
     }
 
@@ -65,7 +71,9 @@ function SpectrogramPanel({ audioUrl, label, colorMap, speechFocus, onWsReady, p
     abortRef.current = abortToken;
 
     destroyInstance();
-    setIsPlaying(false);
+    queueMicrotask(() => {
+      if (!abortToken.aborted) setIsPlaying(false);
+    });
 
     if (!hiddenWaveRef.current || !spectroContainerRef.current) return;
 
@@ -340,8 +348,10 @@ function SpectrogramPanel({ audioUrl, label, colorMap, speechFocus, onWsReady, p
   );
 }
 
-export default function SpectrogramView() {
-  const { originalAudioUrl, cleanedAudioUrl } = useStore();
+export default function SpectrogramView({ originalUrl, cleanedUrl }) {
+  const store = useStore();
+  const originalAudioUrl = originalUrl ?? store.originalAudioUrl;
+  const cleanedAudioUrl = cleanedUrl ?? store.cleanedAudioUrl;
 
   const colorMap = useMemo(() => generateColorMap(), []);
   const [speechFocus, setSpeechFocus] = useState(false);
@@ -398,7 +408,7 @@ export default function SpectrogramView() {
 
   return (
     <div>
-      {/* ── Kontrol Çubuğu — sadece Speech Focus ── */}
+      {/* ── Kontrol Çubuğu — konuşma bandı odağı ── */}
       <div
         style={{
           display:        'flex',
@@ -431,14 +441,14 @@ export default function SpectrogramView() {
           }}
           onMouseEnter={(e) => { if (!speechFocus) { e.currentTarget.style.borderColor = '#FA5D19'; e.currentTarget.style.color = '#FA5D19'; } }}
           onMouseLeave={(e) => { if (!speechFocus) { e.currentTarget.style.borderColor = '#E5E5E5'; e.currentTarget.style.color = '#888'; } }}
-          title="Sadece konuşma frekans bandını göster (300 Hz – 4 kHz)"
+          title="Sadece konuşma frekans bandını göster (300 Hz - 4 kHz)"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="11" cy="11" r="8" />
             <path d="M21 21l-4.35-4.35" strokeLinecap="round" />
             {speechFocus && <path d="M8 11h6M11 8v6" strokeLinecap="round" />}
           </svg>
-          {speechFocus ? 'Konuşma Bandı (300Hz–4kHz)' : 'Speech Focus'}
+          {speechFocus ? 'Konuşma bandı açık' : 'Konuşma bandı'}
         </button>
       </div>
 

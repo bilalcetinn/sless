@@ -11,12 +11,14 @@ import ThreeDSpectro from '../components/ThreeDSpectro';
 import HistoryPanel from '../components/HistoryPanel';
 import ModelComparison from '../components/ModelComparison';
 import AuthModal from '../components/AuthModal';
+import { useAppDialog } from '../components/appDialogContext';
 
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 export default function Home() {
+  const { showAlert } = useAppDialog();
   const {
     uploadedFile,
     selectedModelId,
@@ -37,11 +39,11 @@ export default function Home() {
 
   async function handleClean() {
     if (!uploadedFile) {
-      alert('Lütfen bir ses dosyası yükleyin.');
+      showAlert({ title: 'Ses dosyası gerekli', message: 'Lütfen bir ses dosyası yükleyin.' });
       return;
     }
     if (!selectedModelId) {
-      alert('Lütfen bir model seçin.');
+      showAlert({ title: 'Model seçimi gerekli', message: 'Lütfen bir model seçin.' });
       return;
     }
 
@@ -91,7 +93,7 @@ export default function Home() {
             done = true;
           } else if (statusResult.status === 'error') {
             setProcessingStatus('error');
-            alert('İşlem sırasında hata oluştu. Lütfen tekrar deneyin.');
+            showAlert({ title: 'İşlem tamamlanamadı', message: 'İşlem sırasında hata oluştu. Lütfen tekrar deneyin.', variant: 'danger' });
             done = true;
           }
         } catch (pollErr) {
@@ -101,13 +103,13 @@ export default function Home() {
 
       if (!done) {
         setProcessingStatus('error');
-        alert('İşlem zaman aşımına uğradı.');
+        showAlert({ title: 'Zaman aşımı', message: 'İşlem zaman aşımına uğradı.', variant: 'danger' });
       }
     } catch (err) {
       console.error('İşlem hatası:', err);
       setProcessingStatus('error');
       const msg = err.response?.data?.detail || 'Bir hata oluştu. Lütfen tekrar deneyin.';
-      alert(typeof msg === 'string' ? msg : JSON.stringify(msg));
+      showAlert({ title: 'İşlem hatası', message: typeof msg === 'string' ? msg : JSON.stringify(msg), variant: 'danger' });
     }
   }
 
@@ -150,7 +152,7 @@ export default function Home() {
               lineHeight: 1.7,
             }}
           >
-            Gürültü giderme modellerimiz ile konuşma kalitesini artırın
+            Konuşmalarınızı daha net ve temiz hale getirin
           </p>
         </div>
       </section>
@@ -397,9 +399,6 @@ export default function Home() {
               <span style={{ color: '#FFFFFF' }}>LESS</span>
             </span>
           </div>
-          <p style={{ color: '#888888', fontSize: '13px', margin: 0 }}>
-            Türkçe ses gürültü giderme uygulaması
-          </p>
         </div>
       </footer>
 

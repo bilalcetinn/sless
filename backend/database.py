@@ -9,6 +9,29 @@ import os
 
 DATABASE_PATH = os.path.join(os.path.dirname(__file__), "sless.db")
 
+FIXED_MODELS = [
+    (
+        "MossFormerGAN Best Model",
+        "models/mossformergan-best_model.pt",
+        "MossFormerGAN tabanlı gürültü giderme modeli",
+    ),
+    (
+        "FullSubNet+ Best Model",
+        "models/fullsubnet+-best_model.pt",
+        "FullSubNet+ tabanlı gürültü giderme modeli",
+    ),
+    (
+        "FRCRN Best Model",
+        "models/frcrn_best_model.pt",
+        "FRCRN tabanlı gürültü giderme modeli",
+    ),
+    (
+        "GTCRN Best Model",
+        "models/gtcrn_best_model.pt",
+        "GTCRN tabanlı gürültü giderme modeli",
+    ),
+]
+
 
 async def get_db():
     """Veritabanı bağlantısı döndürür."""
@@ -79,36 +102,34 @@ async def init_db():
 
         await db.commit()
 
-        # ── Seed Data ──
-        # Model 1: DeepFilterNet v1
-        cursor = await db.execute(
-            "SELECT id FROM models WHERE name = ?", ("DeepFilterNet v1",)
+        # ── Sabit model listesi ──
+        # UI'da model yükleme/silme yok; sadece bu 4 checkpoint seçilebilir.
+        fixed_paths = [model[1] for model in FIXED_MODELS]
+        placeholders = ",".join("?" for _ in fixed_paths)
+        await db.execute(
+            f"UPDATE models SET is_active = 0 WHERE file_path NOT IN ({placeholders})",
+            fixed_paths,
         )
-        if not await cursor.fetchone():
-            await db.execute(
-                "INSERT INTO models (name, file_path, description) VALUES (?, ?, ?)",
-                (
-                    "DeepFilterNet v1",
-                    "models/dfn_v1.pt",
-                    "Derin filtre tabanlı gürültü giderici",
-                ),
-            )
 
-        # Model 2: RNNoise v2
-        cursor = await db.execute(
-            "SELECT id FROM models WHERE name = ?", ("RNNoise v2",)
-        )
-        if not await cursor.fetchone():
-            await db.execute(
-                "INSERT INTO models (name, file_path, description) VALUES (?, ?, ?)",
-                (
-                    "RNNoise v2",
-                    "models/rnnoise_v2.pt",
-                    "RNN tabanlı gerçek zamanlı gürültü giderici",
-                ),
+        for name, file_path, description in FIXED_MODELS:
+            cursor = await db.execute(
+                "SELECT id FROM models WHERE file_path = ?", (file_path,)
             )
+            existing = await cursor.fetchone()
+            if existing:
+                await db.execute(
+                    """UPDATE models
+                       SET name = ?, description = ?, is_active = 1
+                       WHERE file_path = ?""",
+                    (name, description, file_path),
+                )
+            else:
+                await db.execute(
+                    "INSERT INTO models (name, file_path, description, is_active) VALUES (?, ?, ?, 1)",
+                    (name, file_path, description),
+                )
 
         await db.commit()
-        print("[OK] Veritabani basariyla olusturuldu ve seed data eklendi.")
+        print("[OK] Veritabani basariyla olusturuldu ve sabit modeller eklendi.")
     finally:
         await db.close()

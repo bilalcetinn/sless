@@ -84,6 +84,7 @@ async function mockApi(page) {
           id: 77,
           model_name: 'FullSubNet+ Demo',
           status: 'done',
+          original_file_path: 'original.wav',
           cleaned_file_path: 'cleaned.wav',
           noise_reduction_level: 50,
           created_at: '2026-05-27T16:30:00',
@@ -158,7 +159,8 @@ test('ana sayfa sekmeleri ve bos gorsel durumlar calisir', async ({ page }) => {
   expect(box.height).toBeGreaterThan(250);
 
   await page.locator('#tab-compare').click();
-  await expect(page.getByText(/Önce bir ses dosyası yükleyin/i)).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Model Karşılaştırma' })).toBeVisible();
+  await expect(page.getByText(/Karşılaştırma başlatıldığında ilk sonuç/i)).toBeVisible();
 });
 
 test('ses yukleme sonrasi spektrogram canvas cizer', async ({ page }) => {
@@ -214,9 +216,9 @@ test('ana temizleme varsayilan filtre degerleriyle calisir', async ({ page }) =>
 
   expect(uploads.length).toBeGreaterThan(0);
   expect(uploads[0]).toContain('name="noise_level"');
-  expect(uploads[0]).toContain('\r\n\r\n50\r\n');
+  expect(uploads[0]).toContain('\r\n\r\n100\r\n');
   expect(uploads[0]).toContain('name="filter_sensitivity"');
-  expect(uploads[0]).toContain('\r\n\r\n50\r\n');
+  expect(uploads[0]).toContain('\r\n\r\n0\r\n');
 });
 
 test('mikrofon kaydi gercek wav olarak yuklenir', async ({ page }) => {
@@ -304,10 +306,11 @@ test('giris sonrasi gecmis sayfasi tasarimli liste gosterir', async ({ page }) =
 
   await page.goto('http://localhost:5173/history');
   await expect(page.getByRole('heading', { name: 'İşlem Geçmişi' })).toBeVisible();
-  await expect(page.getByText('Hesap Geçmişi')).toBeVisible();
-  await expect(page.getByText('FullSubNet+ Demo')).toBeVisible();
+  await expect(page.getByText('Hesap Geçmişi')).toHaveCount(0);
+  await expect(page.getByText('FullSubNet+ Demo').first()).toBeVisible();
   await expect(page.getByText('Tamamlandı')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Yenile' })).toBeVisible();
+  await expect(page.getByText('Dalga Formu Karşılaştırması')).toBeVisible();
 });
 
 test('model karsilastirma iki paneli isler', async ({ page }) => {
@@ -332,44 +335,13 @@ test('model karsilastirma iki paneli isler', async ({ page }) => {
   await page.locator('#tab-compare').click();
   await expect(page.getByText('Model Karşılaştırma')).toBeVisible();
 
-  const ranges = page.locator('input[type="range"]');
-  await ranges.nth(0).evaluate((element) => {
-    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-    setter.call(element, '15');
-    element.dispatchEvent(new Event('input', { bubbles: true }));
-    element.dispatchEvent(new Event('change', { bubbles: true }));
-  });
-  await ranges.nth(1).evaluate((element) => {
-    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-    setter.call(element, '85');
-    element.dispatchEvent(new Event('input', { bubbles: true }));
-    element.dispatchEvent(new Event('change', { bubbles: true }));
-  });
-  await ranges.nth(2).evaluate((element) => {
-    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-    setter.call(element, '65');
-    element.dispatchEvent(new Event('input', { bubbles: true }));
-    element.dispatchEvent(new Event('change', { bubbles: true }));
-  });
-  await ranges.nth(3).evaluate((element) => {
-    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-    setter.call(element, '35');
-    element.dispatchEvent(new Event('input', { bubbles: true }));
-    element.dispatchEvent(new Event('change', { bubbles: true }));
-  });
-
-  const processButtons = page.getByRole('button', { name: /Bu Modelle/ });
-  await expect(processButtons).toHaveCount(2);
-
-  await processButtons.nth(0).click();
-  await expect(page.getByText(/FullSubNet\+ Demo ile işlendi/)).toBeVisible({ timeout: 8000 });
-
-  await processButtons.nth(1).click();
-  await expect(page.getByText(/MossFormerGAN Demo ile işlendi/)).toBeVisible({ timeout: 8000 });
+  await page.getByRole('button', { name: 'Karşılaştır', exact: true }).click();
+  await expect(page.getByText('FullSubNet+ Demo Sonucu')).toBeVisible({ timeout: 8000 });
+  await expect(page.getByText('MossFormerGAN Demo Sonucu')).toBeVisible({ timeout: 8000 });
 
   expect(comparisonRequests).toEqual([
-    expect.objectContaining({ noise_level: 15, filter_sensitivity: 85 }),
-    expect.objectContaining({ noise_level: 65, filter_sensitivity: 35 }),
+    expect.objectContaining({ noise_level: 100, filter_sensitivity: 0 }),
+    expect.objectContaining({ noise_level: 100, filter_sensitivity: 0 }),
   ]);
   await expect(page.getByText('Hangisi daha iyi?')).toHaveCount(0);
 });

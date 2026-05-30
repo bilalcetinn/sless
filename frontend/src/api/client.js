@@ -5,7 +5,6 @@ const API = axios.create({
   timeout: 120000,
 });
 
-// ── Request Interceptor: Token varsa header'a ekle ──
 API.interceptors.request.use((config) => {
   const token = localStorage.getItem('sless_token');
   if (token) {
@@ -14,7 +13,6 @@ API.interceptors.request.use((config) => {
   return config;
 });
 
-// ── Response Interceptor: 401 gelirse token sil ──
 API.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -26,19 +24,13 @@ API.interceptors.response.use(
   }
 );
 
-// ══════════════════════════════════════════════════════════════
-// Model API
-// ══════════════════════════════════════════════════════════════
-
 export async function fetchModels() {
   const res = await API.get('/api/models');
   return res.data;
 }
 
 export async function addModel(formData) {
-  const res = await API.post('/api/models', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  });
+  const res = await API.post('/api/models', formData);
   return res.data;
 }
 
@@ -47,13 +39,8 @@ export async function deleteModel(id) {
   return res.data;
 }
 
-// ══════════════════════════════════════════════════════════════
-// Audio API
-// ══════════════════════════════════════════════════════════════
-
 export async function uploadAudio(formData, onUploadProgress) {
   const res = await API.post('/api/audio/upload', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
     onUploadProgress: (e) => {
       if (onUploadProgress && e.total) {
         const pct = Math.round((e.loaded * 100) / e.total);
@@ -103,9 +90,10 @@ export async function getHistory() {
   return res.data;
 }
 
-// ══════════════════════════════════════════════════════════════
-// Auth API
-// ══════════════════════════════════════════════════════════════
+export async function deleteHistoryRecord(recordId) {
+  const res = await API.delete(`/api/audio/history/${recordId}`);
+  return res.data;
+}
 
 export async function register(data) {
   const res = await API.post('/api/auth/register', data);

@@ -204,7 +204,10 @@ export default function DifferenceAnalysis({ originalUrl, cleanedUrl, mode = 'wa
     }
   }, [originalUrl, cleanedUrl, mode, redraw]);
 
-  useEffect(() => { if (isOpen) analyze(); }, [isOpen, analyze]);
+  useEffect(() => {
+    if (!isOpen) return;
+    queueMicrotask(() => analyze());
+  }, [isOpen, analyze]);
   useEffect(() => { if (!loading && !error && isOpen) redraw(); }, [loading, error, isOpen, redraw]);
   useEffect(() => { cachedRef.current = null; }, [originalUrl, cleanedUrl, mode]);
 

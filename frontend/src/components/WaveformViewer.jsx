@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import WaveSurfer from 'wavesurfer.js';
 import useStore from '../store/useStore';
+import { useAppDialog } from './appDialogContext';
 
 function formatTime(secs) {
   if (isNaN(secs) || !isFinite(secs)) return '0:00';
@@ -9,8 +10,24 @@ function formatTime(secs) {
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
+function safeFileName(value) {
+  return (value || 'sless-cleaned')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 48) || 'sless-cleaned';
+}
+
 // Tek bir dalga formu paneli — kendi play/pause/stop kontrolüyle
-function WavePanel({ label, audioUrl, color = '#FA5D19', progressColor = '#262626' }) {
+function WavePanel({
+  label,
+  audioUrl,
+  color = '#FA5D19',
+  progressColor = '#262626',
+  canDownload = false,
+  downloadName,
+}) {
+  const { showAlert } = useAppDialog();
   const containerRef = useRef(null);
   const wsRef = useRef(null);
   const [status, setStatus] = useState('idle');   // idle | loading | ready | error
@@ -116,6 +133,26 @@ function WavePanel({ label, audioUrl, color = '#FA5D19', progressColor = '#26262
     setCurrentTime(0);
   }
 
+  async function handleDownload() {
+    if (!audioUrl) return;
+    try {
+      const response = await fetch(audioUrl);
+      if (!response.ok) throw new Error('Dosya indirilemedi');
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${safeFileName(downloadName || label)}.wav`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Ses indirilemedi:', err);
+      showAlert({ title: 'İndirme başarısız', message: 'Ses dosyası indirilemedi.', variant: 'danger' });
+    }
+  }
+
   const ready = status === 'ready';
 
   return (
@@ -131,6 +168,24 @@ function WavePanel({ label, audioUrl, color = '#FA5D19', progressColor = '#26262
           <span className="text-[11px] text-app-dark/50 font-mono tabular-nums mr-1">
             {formatTime(currentTime)} / {formatTime(duration)}
           </span>
+
+          {/* Download */}
+          {canDownload && audioUrl && (
+            <button
+              type="button"
+              onClick={handleDownload}
+              title="İndir"
+              aria-label={`${label} indir`}
+              className="w-7 h-7 rounded-lg border-[1.5px] border-[#E5E5E5] flex items-center justify-center text-app-gray-text
+                         hover:border-app-orange hover:text-app-orange hover:bg-[#FFF5F0] transition-colors"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <path d="M12 3v12" strokeLinecap="round" />
+                <path d="M7 10l5 5 5-5" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M5 21h14" strokeLinecap="round" />
+              </svg>
+            </button>
+          )}
 
           {/* Stop */}
           <button
@@ -199,12 +254,12 @@ function WavePanel({ label, audioUrl, color = '#FA5D19', progressColor = '#26262
 }
 
 // Ana bileşen
-export default function WaveformViewer({ audioUrl, label }) {
+export default function WaveformViewer({ audioUrl, label, originalUrl: originalUrlProp, cleanedUrl: cleanedUrlProp, title }) {
   const store = useStore();
 
   const isLegacy = !!audioUrl;
-  const originalUrl = isLegacy ? audioUrl : store.originalAudioUrl;
-  const cleanedUrl  = isLegacy ? null  : store.cleanedAudioUrl;
+  const originalUrl = isLegacy ? audioUrl : (originalUrlProp ?? store.originalAudioUrl);
+  const cleanedUrl  = isLegacy ? null  : (cleanedUrlProp ?? store.cleanedAudioUrl);
 
   // Boş durum
   if (!originalUrl) {
@@ -228,7 +283,7 @@ export default function WaveformViewer({ audioUrl, label }) {
   return (
     <div className="space-y-4">
       <p className="text-[11px] font-bold text-app-gray-text uppercase tracking-widest px-1">
-        {isLegacy ? (label || 'Dalga Formu') : 'Dalga Formu Karşılaştırması'}
+        {isLegacy ? (label || 'Dalga Formu') : (title || 'Dalga Formu Karşılaştırması')}
       </p>
 
       {/* Orijinal panel */}
@@ -237,6 +292,8 @@ export default function WaveformViewer({ audioUrl, label }) {
         audioUrl={originalUrl}
         color="#FA5D19"
         progressColor="#262626"
+        canDownload={isLegacy}
+        downloadName={label || 'sless-cleaned'}
       />
 
       {/* Temizlenmiş panel — sadece varsa */}
@@ -246,13 +303,11 @@ export default function WaveformViewer({ audioUrl, label }) {
           audioUrl={cleanedUrl}
           color="#22C55E"
           progressColor="#15803D"
+          canDownload={!!cleanedUrl}
+          downloadName="sless-temizlenmis-ses"
         />
       )}
 
-      <p className="text-[11px] text-app-gray-text text-center px-4">
-        Her panel bağımsız oynatılabilir. Frekans detayları için{' '}
-        <strong>Spektrogram</strong> sekmesini kullanın.
-      </p>
     </div>
   );
 }

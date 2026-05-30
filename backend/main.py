@@ -676,6 +676,53 @@ async def get_history(request: Request):
         await db.close()
 
 
+@app.delete("/api/audio/history/{record_id}")
+async def delete_history_record(record_id: int, request: Request):
+    """Kullanıcının tek bir geçmiş kaydını sil."""
+    user = await require_auth(request)
+
+    db = await get_db()
+    try:
+        cursor = await db.execute(
+            """SELECT id, original_file_path, cleaned_file_path
+               FROM audio_records
+               WHERE id = ? AND user_id = ?""",
+            (record_id, user["id"]),
+        )
+        record = await cursor.fetchone()
+        if not record:
+            raise HTTPException(status_code=404, detail="Kayıt bulunamadı.")
+
+        await db.execute("DELETE FROM audio_records WHERE id = ?", (record_id,))
+
+        original_path = record["original_file_path"]
+        cleaned_path = record["cleaned_file_path"]
+
+        original_in_use = False
+        if original_path:
+            cursor = await db.execute(
+                "SELECT id FROM audio_records WHERE original_file_path = ? LIMIT 1",
+                (original_path,),
+            )
+            original_in_use = await cursor.fetchone() is not None
+
+        await db.commit()
+
+        if cleaned_path:
+            cleaned_file = os.path.join(BASE_DIR, "uploads", cleaned_path)
+            if os.path.exists(cleaned_file):
+                os.remove(cleaned_file)
+
+        if original_path and not original_in_use:
+            original_file = os.path.join(BASE_DIR, "uploads", original_path)
+            if os.path.exists(original_file):
+                os.remove(original_file)
+
+        return {"success": True, "message": "Geçmiş kaydı silindi."}
+    finally:
+        await db.close()
+
+
 # ── Sağlık kontrolü ──
 @app.get("/api/health")
 async def health():

@@ -4,12 +4,14 @@ import { fetchModels, processWithModel, uploadAudio } from '../api/client';
 import WaveformViewer from './WaveformViewer';
 import AudioUploader from './AudioUploader';
 import ProcessingStatus from './ProcessingStatus';
+import { useAppDialog } from './appDialogContext';
 
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 export default function ModelComparison() {
+  const { showAlert } = useAppDialog();
   const {
     recordId,
     models,
@@ -70,11 +72,11 @@ export default function ModelComparison() {
 
   async function handleCompare() {
     if (!uploadedFile) {
-      alert('Lütfen karşılaştırmak için bir ses dosyası seçin/yükleyin.');
+      showAlert({ title: 'Ses dosyası gerekli', message: 'Lütfen karşılaştırmak için bir ses dosyası seçin/yükleyin.' });
       return;
     }
     if (!leftModelId || !rightModelId) {
-      alert('Lütfen karşılaştırmak için iki model seçin.');
+      showAlert({ title: 'Model seçimi gerekli', message: 'Lütfen karşılaştırmak için iki model seçin.' });
       return;
     }
 
@@ -82,6 +84,8 @@ export default function ModelComparison() {
     setRightResult(null);
     setLeftError(false);
     setRightError(false);
+    setLeftLoading(true);
+    setRightLoading(true);
 
     try {
       let currentRecordId = recordId;
@@ -118,7 +122,6 @@ export default function ModelComparison() {
 
       const processLeft = async () => {
         try {
-          setLeftLoading(true);
           const result = await processWithModel(currentRecordId, leftModelId, 100, 0);
           return {
             modelName: result.model_name,
@@ -128,14 +131,11 @@ export default function ModelComparison() {
           console.error('Model işlenirken hata:', err);
           setLeftError(true);
           return null;
-        } finally {
-          setLeftLoading(false);
         }
       };
 
       const processRight = async () => {
         try {
-          setRightLoading(true);
           const result = await processWithModel(currentRecordId, rightModelId, 100, 0);
           return {
             modelName: result.model_name,
@@ -145,8 +145,6 @@ export default function ModelComparison() {
           console.error('Model işlenirken hata:', err);
           setRightError(true);
           return null;
-        } finally {
-          setRightLoading(false);
         }
       };
 
@@ -154,6 +152,8 @@ export default function ModelComparison() {
 
       if (resLeft) setLeftResult(resLeft);
       if (resRight) setRightResult(resRight);
+      setLeftLoading(false);
+      setRightLoading(false);
 
       // 4. Çıktı hazırlanıyor adımı
       setProcessingStep('Çıktı hazırlanıyor...');
@@ -162,8 +162,10 @@ export default function ModelComparison() {
 
     } catch (err) {
       console.error('Karşılaştırma hatası:', err);
+      setLeftLoading(false);
+      setRightLoading(false);
       setProcessingStatus('error');
-      alert('Karşılaştırma sırasında bir hata oluştu.');
+      showAlert({ title: 'Karşılaştırma tamamlanamadı', message: 'Karşılaştırma sırasında bir hata oluştu.', variant: 'danger' });
     }
   }
 
@@ -176,7 +178,7 @@ export default function ModelComparison() {
       <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '8px' }}>
         <h2 style={{ fontSize: '24px', fontWeight: 800, color: '#262626', fontFamily: "'Space Grotesk', sans-serif", margin: 0 }}>Model Karşılaştırma</h2>
         <p style={{ fontSize: '14px', color: '#888888', margin: 0 }}>
-          Seçtiğiniz iki farklı yapay zeka modelinin sonuçlarını doğrudan kıyaslayın
+          İki farklı modelin temizleme sonucunu yan yana inceleyin
         </p>
       </div>
 
@@ -542,11 +544,12 @@ export default function ModelComparison() {
           )}
 
           {!leftLoading && !leftResult && !leftError && (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '170px', color: '#AAAAAA', gap: '8px' }}>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                <path d="M9 19V6l12-3v13M9 10l12-3" strokeLinecap="round" strokeLinejoin="round" />
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '170px', color: '#AAAAAA', gap: '10px', textAlign: 'center' }}>
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
+                <path d="M4 7h10M4 17h10" strokeLinecap="round" />
+                <path d="M17 4l3 3-3 3M20 7h-6M7 14l-3 3 3 3M4 17h6" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
-              <p style={{ fontSize: '13px', fontWeight: 500 }}>İlk model sonucunu görmek için karşılaştırın</p>
+              <p style={{ fontSize: '13px', fontWeight: 600, margin: 0 }}>Karşılaştırma başlatıldığında ilk sonuç burada görünecek</p>
             </div>
           )}
         </div>
@@ -587,11 +590,12 @@ export default function ModelComparison() {
           )}
 
           {!rightLoading && !rightResult && !rightError && (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '170px', color: '#AAAAAA', gap: '8px' }}>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                <path d="M9 19V6l12-3v13M9 10l12-3" strokeLinecap="round" strokeLinejoin="round" />
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '170px', color: '#AAAAAA', gap: '10px', textAlign: 'center' }}>
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
+                <path d="M4 7h10M4 17h10" strokeLinecap="round" />
+                <path d="M17 4l3 3-3 3M20 7h-6M7 14l-3 3 3 3M4 17h6" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
-              <p style={{ fontSize: '13px', fontWeight: 500 }}>İkinci model sonucunu görmek için karşılaştırın</p>
+              <p style={{ fontSize: '13px', fontWeight: 600, margin: 0 }}>Karşılaştırma başlatıldığında ikinci sonuç burada görünecek</p>
             </div>
           )}
         </div>

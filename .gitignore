@@ -14,7 +14,8 @@ uploads/
 # Büyük model dosyaları (Git LFS olmadan commit edilmez)
 *.pt
 *.pth
-models/
+models/*
+!models/README.md
 
 # Node
 frontend/node_modules/

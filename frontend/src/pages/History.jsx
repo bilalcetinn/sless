@@ -25,10 +25,6 @@ export default function History() {
       <main style={{ maxWidth: '1280px', margin: '0 auto', padding: '40px 24px 80px' }}>
         <section
           style={{
-            display: 'grid',
-            gridTemplateColumns: '1fr auto',
-            gap: '24px',
-            alignItems: 'end',
             marginBottom: '24px',
           }}
         >
@@ -52,27 +48,6 @@ export default function History() {
               Ana sayfaya dön
             </Link>
 
-            <div
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '8px',
-                background: '#FEE8DC',
-                color: '#FA5D19',
-                padding: '6px 14px',
-                borderRadius: '20px',
-                fontSize: '11px',
-                fontWeight: 800,
-                letterSpacing: '0.1em',
-                textTransform: 'uppercase',
-                marginBottom: '14px',
-                border: '1px solid rgba(250,93,25,0.18)',
-              }}
-            >
-              <span style={{ width: '6px', height: '6px', background: '#FA5D19', borderRadius: '50%', display: 'inline-block' }} />
-              Hesap Geçmişi
-            </div>
-
             <h1
               style={{
                 fontFamily: "'Space Grotesk', sans-serif",
@@ -89,46 +64,6 @@ export default function History() {
               Daha önce temizlediğiniz ses kayıtlarını inceleyin, dinleyin veya tekrar indirin.
             </p>
           </div>
-
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px',
-              background: '#FFFFFF',
-              border: '1px solid #F0F0F0',
-              borderRadius: '14px',
-              padding: '14px 18px',
-              boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
-              minWidth: '220px',
-            }}
-          >
-            <div
-              style={{
-                width: '40px',
-                height: '40px',
-                borderRadius: '10px',
-                background: '#FFF5F0',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#FA5D19',
-                flexShrink: 0,
-              }}
-            >
-              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M12 8v5l3 2M3 12a9 9 0 1018 0 9 9 0 00-18 0z" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </div>
-            <div>
-              <p style={{ margin: 0, fontSize: '12px', color: '#AAAAAA', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                Kayıtlar
-              </p>
-              <p style={{ margin: '2px 0 0', fontSize: '14px', color: '#262626', fontWeight: 700 }}>
-                Hesabınıza bağlı
-              </p>
-            </div>
-          </div>
         </section>
 
         <div
@@ -143,14 +78,6 @@ export default function History() {
           <HistoryPanel showHeader={false} />
         </div>
       </main>
-
-      <style>{`
-        @media (max-width: 760px) {
-          main section {
-            grid-template-columns: 1fr !important;
-          }
-        }
-      `}</style>
     </div>
   );
 }
