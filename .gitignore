@@ -23,6 +23,8 @@ frontend/dist/
 
 # Notebook dosyaları
 *.ipynb
+!Notebooks/
+!Notebooks/*.ipynb
 
 # Misc
 .DS_Store
