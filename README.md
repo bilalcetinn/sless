@@ -1,5 +1,7 @@
 # SLESS - Turkce Ses Gurultu Giderme Uygulamasi
 
+Model dosyaları şu drive linkinde bulunmaktadır: https://drive.google.com/drive/folders/1tNJFp4gnWfNjT3tM8icvhKkqByHh0k_G
+
 SLESS, Turkce konusma seslerindeki arka plan gurultusunu azaltmak icin gelistirilmis FastAPI + React/Vite tabanli bir web uygulamasidir.
 
 Uygulama ses dosyasi yukleme, sabit modeller arasindan temizleme yapma, iki modeli yan yana karsilastirma, temizlenmis sesi indirme ve kayitli kullanicilar icin islem gecmisi goruntuleme ozelliklerini icerir.
